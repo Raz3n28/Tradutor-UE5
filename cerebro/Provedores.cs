@@ -102,10 +102,11 @@ internal static class Provedores
     {
         StringBuilder sb = new StringBuilder();
         sb.Append("You write short abbreviations for UI labels (stats, attributes, buttons) of " + LiveConfig.Jogo + ", in ").Append(LiveConfig.NomeIdiomaIngles()).Append(". ");
-        sb.Append("The labels must fit a very narrow space in the game screen. ");
-        sb.Append("The user sends a JSON array; each item is \"original || translation\". ");
-        sb.Append("For each item abbreviate the TRANSLATION, the way games in ").Append(LiveConfig.NomeIdiomaIngles()).Append(" usually do (e.g. Attack -> ATK, Defense -> DEF, Critical Rate -> Crit Rate). ");
-        sb.Append("Keep it recognizable, at most about 8 characters; if the translation is already that short, repeat it unchanged. ");
+        sb.Append("They must fit a very narrow space in the game screen; the full text is still shown in the tooltip. ");
+        sb.Append("The user sends a JSON array; each item is \"original || translation || type\". Shorten the TRANSLATION according to the type:\n");
+        sb.Append("- stat: a game-style abbreviation of at most 4 letters, usually uppercase (Strength -> STR, Insight -> INS, Tenacity -> TEN, Spirit -> SPI, Charm -> CHA, Phys ATK -> PATK, Crit DMG Res -> CDR). Keep 4-letter words as they are (Luck).\n");
+        sb.Append("- label (menus, column headers, buttons, short UI text, maybe with numbers): the usual short UI form, keeping numbers and symbols (Allocate -> Alloc., Attr. value -> Value, Cost35 -> C35).\n");
+        sb.Append("- name (clans, lineages, origins, titles, talents, techniques, items...): a shorter name with the same meaning, NOT an acronym: drop generic words the column already makes obvious (Heluo Clan -> Heluo), use common abbreviations (Imperial Orphan -> Imp. Orphan) or a shorter wording (Lone Blade Drinks Blood -> Blood Blade). Aim at about 60% of the length, at most about 14 characters.\n");
         sb.Append("Reply with ONLY a JSON array of strings, with exactly the same number of items and the same order as the input.");
         return MontarIA(p, sb.ToString(), Json.ListaTextos(termos), Mathf.Clamp(256 + termos.Count * 16, 512, 4096));
     }

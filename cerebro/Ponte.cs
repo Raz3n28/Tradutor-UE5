@@ -39,6 +39,38 @@ internal static class Ponte
     // lugares onde cada texto apareceu nesta sessao (para o menu oferecer as telas): texto -> lugares
     private static readonly Dictionary<string, List<string>> lugares = new Dictionary<string, List<string>>();
     private const int MaxLugares = 12;
+    // lugar -> textos vistos nele (para a lista de telas e para abreviar a tela inteira)
+    private static readonly Dictionary<string, List<string>> porLugar = new Dictionary<string, List<string>>();
+    private const int MaxPorLugar = 300;
+    // ultima traducao mandada para cada texto (para abreviar textos que nao sao do glossario)
+    private static readonly Dictionary<string, string> respondidos = new Dictionary<string, string>();
+
+    public static string Traducao(string texto)
+    {
+        string r;
+        return texto != null && respondidos.TryGetValue(texto, out r) ? r : null;
+    }
+
+    public static List<string> TextosDe(string lugar)
+    {
+        List<string> l;
+        return lugar != null && porLugar.TryGetValue(lugar, out l) ? l : new List<string>();
+    }
+
+    public static List<string> TodosLugares()
+    {
+        return new List<string>(porLugar.Keys);
+    }
+
+    // marcar/desmarcar tela apertada (menu). Marcada: a IA abrevia os textos dela.
+    public static void MarcarTela(string lugar, bool apertada)
+    {
+        if (apertada) LiveConfig.TelasCurtas.Add(lugar);
+        else LiveConfig.TelasCurtas.Remove(lugar);
+        LiveConfig.Marcar();
+        Reenviar = true;
+        if (apertada) Abreviador.Tela(lugar);
+    }
 
     // abreviacao ou tela apertada mudou: a ponte devolve os originais e pede tudo de novo (com as abreviacoes)
     public static bool Reenviar;
@@ -61,6 +93,7 @@ internal static class Ponte
     public static void Tick()
     {
         Ler();
+        Abreviador.Tick();
 
         if (LiveConfig.Ativo != ativoAntes)
         {
@@ -178,6 +211,15 @@ internal static class Ponte
             lugares[texto] = l;
         }
         if (l.Count < MaxLugares && !l.Contains(lugar)) l.Add(lugar);
+        List<string> t;
+        if (!porLugar.TryGetValue(lugar, out t))
+        {
+            if (porLugar.Count >= 2000) return;
+            t = new List<string>();
+            porLugar[lugar] = t;
+        }
+        if (t.Count < MaxPorLugar && !t.Contains(texto)) t.Add(texto);
+        if (LiveConfig.TelasCurtas.Contains(lugar)) Abreviador.Pedir(texto);
     }
 
     // abreviacoes do texto para as telas apertadas
@@ -208,6 +250,8 @@ internal static class Ponte
         {
             esperando.Remove(texto);
             Curtas(texto);
+            if (respondidos.Count > 20000) respondidos.Clear();
+            respondidos[texto] = r;
             saida.Append("R\t").Append(Escapar(texto)).Append('\t').Append(Escapar(r)).Append('\n');
             Enviados++;
         }

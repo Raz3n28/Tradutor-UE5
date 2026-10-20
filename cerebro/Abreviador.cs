@@ -2,74 +2,158 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-// Botao "Abreviar com IA" (aba Glossario, so no modo com chave): pede uma abreviacao curta para os termos
-// selecionados que ainda nao tem (TermoGlossario.Curta). Mesmo jeito do Classificador: lotes, um pedido por vez,
-// no ritmo dos "pedidos por minuto". Gasta tokens so quando o jogador aperta.
+// Abreviacoes para as telas apertadas (so no modo com chave). Duas entradas:
+//  - botao "Abreviar com IA" do glossario: os termos selecionados;
+//  - tela marcada como apertada: todos os textos vistos nela (e os que aparecerem depois).
+// Fila + lotes, um pedido por vez, no ritmo dos "pedidos por minuto" (Tick vem do relogio da janela).
+// Texto que ainda nao e termo do glossario vira termo (nao travado) para guardar a abreviacao.
+// Tipo do pedido: atributo -> sigla curta (STR, INS); menu/outros -> rotulo abreviado (Alloc.);
+// nomes (cla, talento, titulo...) -> nome mais curto, sem virar sigla.
 internal static class Abreviador
 {
     private const int Lote = 40;
+    private const int CatAtributo = 9;
+    private const int CatMenu = 11;
 
     public static bool Rodando;
     public static string Status = "";
     public static bool StatusErro;
 
-    public static void Iniciar(List<TermoGlossario> selecionados)
+    private static readonly List<string> fila = new List<string>();
+    private static readonly HashSet<string> naFila = new HashSet<string>();
+    private static readonly HashSet<string> tentados = new HashSet<string>();   // nesta sessao (sem repetir pedido)
+    private static DateTime proximo = DateTime.MinValue;
+
+    private static bool ModoChave(bool avisar)
     {
-        if (Rodando) return;
         Provedor p = LiveConfig.Atual;
         string motivo;
-        if (p.Tipo == 0) { Status = LiveTxt.T("cia_gratis"); StatusErro = true; return; }
-        if (!Provedores.Configurado(p, out motivo)) { Status = motivo; StatusErro = true; return; }
-        List<TermoGlossario> alvo = new List<TermoGlossario>();
-        for (int i = 0; i < selecionados.Count; i++)
-            if (string.IsNullOrEmpty(selecionados[i].Curta)) alvo.Add(selecionados[i]);
-        if (alvo.Count == 0) { Status = LiveTxt.T("abr_nada"); StatusErro = false; return; }
-        _ = Rodar(p, alvo);
+        if (p.Tipo == 0) { if (avisar) { Status = LiveTxt.T("cia_gratis"); StatusErro = true; } return false; }
+        if (!Provedores.Configurado(p, out motivo)) { if (avisar) { Status = motivo; StatusErro = true; } return false; }
+        return true;
     }
 
-    private static async Task Rodar(Provedor p, List<TermoGlossario> alvo)
+    // botao do glossario
+    public static void Iniciar(List<TermoGlossario> selecionados)
+    {
+        if (!ModoChave(true)) return;
+        int n = 0;
+        for (int i = 0; i < selecionados.Count; i++)
+        {
+            if (!string.IsNullOrEmpty(selecionados[i].Curta)) continue;
+            tentados.Remove(selecionados[i].Original);   // o jogador pediu: tenta de novo
+            if (Pedir(selecionados[i].Original)) n++;
+        }
+        if (n == 0 && !Rodando) { Status = LiveTxt.T("abr_nada"); StatusErro = false; }
+    }
+
+    // tela marcada: todos os textos vistos nela
+    public static void Tela(string lugar)
+    {
+        if (!ModoChave(false)) return;
+        List<string> t = Ponte.TextosDe(lugar);
+        for (int i = 0; i < t.Count; i++) Pedir(t[i]);
+    }
+
+    // um texto (precisa ter traducao conhecida e ainda nao ter abreviacao)
+    public static bool Pedir(string texto)
+    {
+        if (string.IsNullOrEmpty(texto) || naFila.Contains(texto) || tentados.Contains(texto)) return false;
+        if (!ModoChave(false)) return false;
+        TermoGlossario g = Glossario.Obter(texto);
+        if (g != null && !string.IsNullOrEmpty(g.Curta)) return false;
+        string trad = Traducao(texto);
+        if (trad == null || Letras(trad) <= 4) return false;   // ja e curto
+        fila.Add(texto);
+        naFila.Add(texto);
+        return true;
+    }
+
+    private static string Traducao(string texto)
+    {
+        TermoGlossario g = Glossario.Obter(texto);
+        if (g != null) return g.Traducao;
+        return Ponte.Traducao(texto);
+    }
+
+    private static int Letras(string s)
+    {
+        int n = 0;
+        for (int i = 0; i < s.Length; i++) if (char.IsLetterOrDigit(s[i])) n++;
+        return n;
+    }
+
+    private static int Cat(string texto)
+    {
+        TermoGlossario g = Glossario.Obter(texto);
+        return g != null ? g.Cat : Glossario.Categorizar(texto, "", -1);
+    }
+
+    // relogio da janela
+    public static void Tick()
+    {
+        if (Rodando || fila.Count == 0 || DateTime.Now < proximo) return;
+        if (!ModoChave(true)) { fila.Clear(); naFila.Clear(); return; }
+        int n = Mathf.Min(Lote, fila.Count);
+        List<string> parte = fila.GetRange(0, n);
+        fila.RemoveRange(0, n);
+        for (int i = 0; i < parte.Count; i++) { naFila.Remove(parte[i]); tentados.Add(parte[i]); }
+        _ = Rodar(LiveConfig.Atual, parte);
+    }
+
+    private static async Task Rodar(Provedor p, List<string> parte)
     {
         Rodando = true;
         StatusErro = false;
-        int feitos = 0, falhas = 0;
+        Status = LiveTxt.F("abr_andamento", parte.Count, parte.Count + fila.Count);
+        int feitos = 0;
         try
         {
-            for (int ini = 0; ini < alvo.Count; ini += Lote)
+            List<string> trads = new List<string>();
+            List<int> cats = new List<int>();
+            List<string> itens = new List<string>();
+            for (int i = 0; i < parte.Count; i++)
             {
-                List<TermoGlossario> parte = alvo.GetRange(ini, Mathf.Min(Lote, alvo.Count - ini));
-                List<string> textos = new List<string>();
-                for (int i = 0; i < parte.Count; i++) textos.Add(parte[i].Original + " || " + parte[i].Traducao);
-                Status = LiveTxt.F("abr_andamento", feitos, alvo.Count);
-
-                Pedido req;
-                try { req = Provedores.MontarAbreviar(p, textos); }
-                catch (Exception e)
-                {
-                    Status = LiveTxt.F("comp_erro", e.Message);
-                    StatusErro = true;
-                    break;
-                }
-                Resposta resp = await Http.Enviar(req);
-                if (resp.Codigo != 200)
-                {
-                    Status = LiveTxt.F("cia_erro", resp.Codigo, string.IsNullOrEmpty(resp.Erro) ? "" : resp.Erro);
-                    StatusErro = true;
-                    break;
-                }
-                List<string> curtas = Provedores.InterpretarLista(p, resp.Corpo, textos.Count);
-                if (curtas == null) falhas += parte.Count;
+                string t = Traducao(parte[i]) ?? "";
+                int c = Cat(parte[i]);
+                trads.Add(t);
+                cats.Add(c);
+                string tipo = c == CatAtributo ? "stat" : (c == CatMenu || c == 0 ? "label" : "name");
+                itens.Add(parte[i] + " || " + t + " || " + tipo);
+            }
+            Resposta resp = await Http.Enviar(Provedores.MontarAbreviar(p, itens));
+            if (resp.Codigo != 200)
+            {
+                Status = LiveTxt.F("cia_erro", resp.Codigo, string.IsNullOrEmpty(resp.Erro) ? "" : resp.Erro);
+                StatusErro = true;
+            }
+            else
+            {
+                List<string> curtas = Provedores.InterpretarLista(p, resp.Corpo, itens.Count);
+                if (curtas == null) { Status = LiveTxt.F("abr_fim", 0, parte.Count, parte.Count); }
                 else
                 {
                     for (int i = 0; i < parte.Count; i++)
                     {
                         string c = (curtas[i] ?? "").Trim();
-                        if (c.Length == 0 || c.Length >= parte[i].Traducao.Length) continue;   // nao ficou mais curta
-                        if (string.IsNullOrEmpty(parte[i].Curta)) { parte[i].Curta = c; feitos++; }
+                        if (c.Length == 0 || trads[i].Length == 0 || c.Length >= trads[i].Length) continue;   // nao ficou mais curta
+                        TermoGlossario g = Glossario.Obter(parte[i]);
+                        if (g == null)
+                        {
+                            Glossario.Definir(parte[i], trads[i], cats[i], false);
+                            g = Glossario.Obter(parte[i]);
+                        }
+                        if (g == null || !string.IsNullOrEmpty(g.Curta)) continue;
+                        g.Curta = c;
+                        feitos++;
                     }
-                    Glossario.Marcar();
-                    Ponte.Reenviar = true;
+                    if (feitos > 0)
+                    {
+                        Glossario.Marcar();
+                        Ponte.Reenviar = true;
+                    }
+                    Status = LiveTxt.F("abr_fim", feitos, parte.Count, 0);
                 }
-                if (ini + Lote < alvo.Count) await Task.Delay((int)(60000f / Mathf.Max(1, LiveConfig.Rpm)));
             }
         }
         catch (Exception e)
@@ -77,7 +161,8 @@ internal static class Abreviador
             Status = LiveTxt.F("comp_erro", e.Message);
             StatusErro = true;
         }
-        if (!StatusErro) Status = LiveTxt.F("abr_fim", feitos, alvo.Count, falhas);
+        LiveLog.Info("lg_abr", feitos, parte.Count);
+        proximo = DateTime.Now.AddMilliseconds(60000f / Mathf.Max(1, LiveConfig.Rpm));
         Rodando = false;
     }
 }
