@@ -517,6 +517,18 @@ internal static class Provedores
                 sb.Append("\nIMPORTANT: a previous translation of this text ignored the glossary. Every glossary term above that appears in the input MUST be translated exactly as listed (it may be inflected for grammar).");
         }
 
+        // memoria de exemplos: termos travados pelo jogador parecidos com os termos novos do lote
+        if (LiveConfig.Exemplos)
+        {
+            List<TermoGlossario> exemplos = Glossario.Exemplos(textos, 8, 700);
+            if (exemplos.Count > 0)
+            {
+                sb.Append("\nExamples of how the player translates SIMILAR terms (they are not in the input). For new terms of the same kind, follow the same pattern: wording, word order, what stays in pinyin and what is translated:");
+                for (int i = 0; i < exemplos.Count; i++)
+                    sb.Append("\n- ").Append(UmaLinha(exemplos[i].Original)).Append(" => ").Append(UmaLinha(exemplos[i].Traducao));
+            }
+        }
+
         // contexto: o que apareceu na tela pouco antes (ajuda em dialogos: genero, tratamento, assunto)
         List<string[]> recentes = LiveMotor.Recentes(textos);
         if (recentes.Count > 0)

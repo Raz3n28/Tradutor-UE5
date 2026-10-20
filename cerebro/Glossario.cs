@@ -504,6 +504,91 @@ internal static class Glossario
         return r;
     }
 
+    // ---------------- memoria de exemplos ----------------
+
+    // Termos travados (editados ou travados pelo jogador) que se PARECEM com os termos curtos do lote:
+    // vao no pedido como modelo ("o jogador traduz assim"), para o termo novo sair no mesmo padrao.
+    // Ex.: travou 青城派 -> "Seita Qingcheng"; chega 峨眉派 -> a IA ve o exemplo e faz "Seita Emei".
+    // Parecido = mesmo fim em chines (派, 丹, 山...), mesma categoria, letras em comum.
+    // Termo que ja esta DENTRO do texto nao conta (esse ja vai como glossario).
+    public static int Travados
+    {
+        get
+        {
+            int n = 0;
+            for (int i = 0; i < lista.Count; i++) if (lista[i].Travado) n++;
+            return n;
+        }
+    }
+
+    public static List<TermoGlossario> Exemplos(List<string> textos, int max, int maxChars)
+    {
+        List<TermoGlossario> r = new List<TermoGlossario>();
+        if (textos == null || textos.Count == 0) return r;
+        List<TermoGlossario> travados = new List<TermoGlossario>();
+        for (int i = 0; i < lista.Count; i++) if (lista[i].Travado) travados.Add(lista[i]);
+        if (travados.Count == 0) return r;
+
+        // pontos de cada travado (o melhor ponto entre os textos do lote)
+        Dictionary<TermoGlossario, int> pontos = new Dictionary<TermoGlossario, int>();
+        for (int k = 0; k < textos.Count; k++)
+        {
+            string s = textos[k];
+            if (!Termo(s) || mapa.ContainsKey(s)) continue;
+            int cat = Categorizar(s, "", -1);
+            char fim = UltimaLetra(s);
+            for (int i = 0; i < travados.Count; i++)
+            {
+                TermoGlossario t = travados[i];
+                if (t.Original == s || s.IndexOf(t.Original, StringComparison.Ordinal) >= 0) continue;
+                int p = 0;
+                if (fim != '\0' && fim == UltimaLetra(t.Original)) p += 3;
+                if (cat > 0 && cat == t.Cat) p += 2;
+                p += Math.Min(2, Comuns(s, t.Original));
+                if (p < 2) continue;
+                int antes;
+                if (!pontos.TryGetValue(t, out antes) || p > antes) pontos[t] = p;
+            }
+        }
+        List<KeyValuePair<TermoGlossario, int>> ordem = new List<KeyValuePair<TermoGlossario, int>>(pontos);
+        ordem.Sort(delegate (KeyValuePair<TermoGlossario, int> a, KeyValuePair<TermoGlossario, int> b) { return b.Value.CompareTo(a.Value); });
+        int chars = 0;
+        for (int i = 0; i < ordem.Count && r.Count < max; i++)
+        {
+            TermoGlossario t = ordem[i].Key;
+            int c = t.Original.Length + t.Traducao.Length + 6;
+            if (chars + c > maxChars) break;
+            chars += c;
+            r.Add(t);
+        }
+        return r;
+    }
+
+    // ultima letra chinesa/japonesa/coreana do termo ('\0' se nao tiver)
+    private static char UltimaLetra(string s)
+    {
+        for (int i = s.Length - 1; i >= 0; i--)
+        {
+            char c = s[i];
+            if (c >= '\u2E80' && c <= '\uFFEF' && char.IsLetter(c)) return c;
+            if (char.IsLetter(c)) return '\0';
+        }
+        return '\0';
+    }
+
+    // quantas letras chinesas/japonesas/coreanas os dois termos tem em comum
+    private static int Comuns(string a, string b)
+    {
+        int n = 0;
+        for (int i = 0; i < a.Length; i++)
+        {
+            char c = a[i];
+            if (c < '\u2E80' || !char.IsLetter(c)) continue;
+            if (b.IndexOf(c) >= 0) n++;
+        }
+        return n;
+    }
+
     // categorias de nome proprio (o termo tem que sair igual dentro das frases)
     public static bool NomeProprio(int cat)
     {

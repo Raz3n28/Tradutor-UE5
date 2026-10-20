@@ -890,6 +890,7 @@ internal sealed class Janela : Form
         Opcao(ia, LiveTxt.T("op_extrair"), LiveConfig.ExtrairTermos, LiveTxt.T("op_extrair_dica"), delegate (bool v) { LiveConfig.ExtrairTermos = v; });
         Opcao(ia, LiveTxt.T("op_verificar"), LiveConfig.VerificarGlossario, LiveTxt.T("op_verificar_dica"), delegate (bool v) { LiveConfig.VerificarGlossario = v; });
         Opcao(ia, LiveTxt.T("op_encaixar"), LiveConfig.Encaixar, LiveTxt.T("op_encaixar_dica"), delegate (bool v) { LiveConfig.Encaixar = v; });
+        Opcao(ia, LiveTxt.T("op_exemplos"), LiveConfig.Exemplos, LiveTxt.F("op_exemplos_dica", Glossario.Travados), delegate (bool v) { LiveConfig.Exemplos = v; });
 
         // instrucoes extras
         FlowLayoutPanel ex = Cartao(null);
@@ -1194,7 +1195,8 @@ internal sealed class Janela : Form
         preenchendo = false;
         if (voltar >= 0) grade.CurrentCell = grade.Rows[voltar].Cells[0];
         glosContagem.Text = Glossario.Total == 0 ? LiveTxt.T("glos_vazio")
-            : LiveTxt.F("glos_rodape", filtrado.Count, Glossario.Total) + (filtrado.Count > max ? " (" + max + ")" : "") + "   " + LiveTxt.T("glos_nota2");
+            : LiveTxt.F("glos_rodape", filtrado.Count, Glossario.Total) + (filtrado.Count > max ? " (" + max + ")" : "")
+              + "   " + LiveTxt.F("glos_memoria", Glossario.Travados) + "   " + LiveTxt.T("glos_nota2");
         MostrarSelecionado();
     }
 
