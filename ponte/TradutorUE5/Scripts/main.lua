@@ -7,7 +7,12 @@
 --   respostas.txt (cerebro -> ponte)  R<TAB>texto<TAB>traducao | N<TAB>texto | X (devolver originais)
 
 ---------------- ajustes ----------------
-local INTERVALO_MS = 250          -- de quanto em quanto tempo olha a tela
+local INTERVALO_MS = 500          -- de quanto em quanto tempo olha a tela
+-- varrer a tela enquanto o jogo carrega derruba o jogo (objetos pela metade). Por isso a ponte so comeca
+-- depois que o jogador entra (PlayerController:ClientRestart) e para enquanto um mapa carrega.
+local ESPERA_INICIO_MS = 5000     -- espera depois que o jogador entrou
+local ESPERA_MAX_MS = 60000       -- comeca mesmo assim se o jogo nunca avisar
+local ESPERA_MAPA_MS = 3000       -- espera depois que um mapa terminou de carregar
 local TECLA_MENU = Key.F8
 local ABRIR_CEREBRO = true        -- abre o TradutorCerebro.exe junto com o jogo
 local CLASSES = { "TextBlock", "RichTextBlock" }
@@ -64,6 +69,8 @@ local lidoResp = 0
 local naTela = {}     -- endereco do widget -> true (widget de verdade) | false (molde: Default__ ou template)
 local proxLimpeza = 0
 local primeiraTroca = true
+local liberadoEm = nil   -- os.clock() a partir do qual pode varrer (nil = ainda nao)
+local inicio = os.clock()
 
 local function Enviar(linha)
     saida[#saida + 1] = linha .. "\n"
@@ -192,17 +199,48 @@ local function Varrer()
     end
 end
 
+local function Liberar(ms)
+    liberadoEm = os.clock() + ms / 1000
+end
+
+local avisouVarrendo = false
+local function PodeVarrer()
+    local agora = os.clock()
+    if liberadoEm == nil and agora - inicio >= ESPERA_MAX_MS / 1000 then
+        Log("o jogo nao avisou que o jogador entrou; comecando assim mesmo")
+        liberadoEm = agora
+    end
+    if liberadoEm == nil or agora < liberadoEm then return false end
+    if not avisouVarrendo then
+        avisouVarrendo = true
+        Log("comecando a vigiar a tela")
+    end
+    return true
+end
+
 local function Tick()
     local ok, erro = pcall(LerRespostas)
     if not ok then Log("erro lendo respostas: " .. tostring(erro)) end
-    ok, erro = pcall(Varrer)
-    if not ok then Log("erro vigiando a tela: " .. tostring(erro)) end
+    if PodeVarrer() then
+        ok, erro = pcall(Varrer)
+        if not ok then Log("erro vigiando a tela: " .. tostring(erro)) end
+    end
     ok, erro = pcall(Gravar)
     if not ok then Log("erro gravando pedidos: " .. tostring(erro)) end
 end
 
 ---------------- inicio ----------------
 local function Iniciar()
+
+local okGancho = pcall(RegisterHook, "/Script/Engine.PlayerController:ClientRestart", function()
+    if liberadoEm == nil then Log("jogador entrou") end
+    Liberar(ESPERA_INICIO_MS)
+end)
+if not okGancho then Log("sem gancho ClientRestart; espera " .. (ESPERA_MAX_MS / 1000) .. " s") end
+
+-- troca de mapa: para de varrer ate o mapa novo terminar de carregar
+pcall(RegisterLoadMapPreHook, function() liberadoEm = nil; inicio = os.clock() end)
+pcall(RegisterLoadMapPostHook, function() Liberar(ESPERA_MAPA_MS) end)
     -- jogo abriu: zera a conversa
     local f = io.open(ARQ_RESPOSTAS, "wb")
     if not f then
@@ -230,6 +268,16 @@ local function Iniciar()
 end
 
 Iniciar()
+
+local okGancho = pcall(RegisterHook, "/Script/Engine.PlayerController:ClientRestart", function()
+    if liberadoEm == nil then Log("jogador entrou") end
+    Liberar(ESPERA_INICIO_MS)
+end)
+if not okGancho then Log("sem gancho ClientRestart; espera " .. (ESPERA_MAX_MS / 1000) .. " s") end
+
+-- troca de mapa: para de varrer ate o mapa novo terminar de carregar
+pcall(RegisterLoadMapPreHook, function() liberadoEm = nil; inicio = os.clock() end)
+pcall(RegisterLoadMapPostHook, function() Liberar(ESPERA_MAPA_MS) end)
 
 RegisterKeyBind(TECLA_MENU, function()
     ExecuteInGameThread(function()
