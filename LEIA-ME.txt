@@ -1,0 +1,15 @@
+TRADUTOR UE5 - traducao ao vivo para jogos em Unreal Engine 5 (primeiro jogo: Sanctum: Whispers of Qingcheng)
+
+INSTALAR
+1. Instale o UE4SS (versao experimental mais recente) na pasta do jogo:
+   ...\QingCheng\Binaries\Win64\  (onde fica o QingCheng-Win64-Shipping.exe)
+   Ali devem ficar o dwmapi.dll e a pasta ue4ss.
+2. Copie a pasta "ue4ss" deste zip para a mesma pasta Binaries\Win64 (junta com a do UE4SS).
+3. Abra o jogo. O tradutor (TradutorCerebro.exe) abre sozinho, escondido.
+4. No jogo, aperte F8: abre o menu do tradutor. Escolha o idioma e o servico e clique em "Comecar traducao".
+
+ONDE FICAM AS COISAS
+ue4ss\Mods\TradutorUE5\dados\   config.txt, cache_<idioma>.txt, glossario_<idioma>.txt, log.txt
+ue4ss\UE4SS.log                 log do UE4SS (linhas [TradutorUE5])
+
+O tradutor fecha sozinho quando o jogo fecha.
