@@ -1,6 +1,8 @@
 TRADUTOR UE5 - traducao ao vivo para jogos em Unreal Engine 5 (primeiro jogo: Sanctum: Whispers of Qingcheng)
 
 INSTALAR
+0. Precisa do .NET 8 Desktop Runtime (Windows x64): https://dotnet.microsoft.com/download/dotnet/8.0
+   (para conferir: no cmd, "dotnet --list-runtimes" deve mostrar Microsoft.WindowsDesktop.App 8.x)
 1. Instale o UE4SS (versao experimental mais recente) na pasta do jogo:
    ...\QingCheng\Binaries\Win64\  (onde fica o QingCheng-Win64-Shipping.exe)
    Ali devem ficar o dwmapi.dll e a pasta ue4ss.
