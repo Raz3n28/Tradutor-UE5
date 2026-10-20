@@ -4,6 +4,9 @@ INSTALAR
 1. Instale o UE4SS (versao experimental mais recente) na pasta do jogo:
    ...\QingCheng\Binaries\Win64\  (onde fica o QingCheng-Win64-Shipping.exe)
    Ali devem ficar o dwmapi.dll e a pasta ue4ss.
+   Sanctum (UE 5.8): o UE4SS trava ou crasha o jogo com os ganchos padrao. No ue4ss\UE4SS-settings.ini,
+   secao [Hooks], deixe so HookLoadMap = 1 e HookEngineTick = 1; todos os outros Hook... = 0.
+   No ue4ss\Mods\mods.txt os mods de exemplo do UE4SS podem ficar todos em 0 (o tradutor nao usa).
 2. Copie a pasta "ue4ss" deste zip para a mesma pasta Binaries\Win64 (junta com a do UE4SS).
 3. Abra o jogo. O tradutor (TradutorCerebro.exe) abre sozinho, escondido.
 4. No jogo, aperte F8: abre o menu do tradutor. Escolha o idioma e o servico e clique em "Comecar traducao".
