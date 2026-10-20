@@ -455,7 +455,8 @@ internal static class Provedores
         sb.Append("never add notes or explanations; if a string is already in the target language, return it unchanged. ");
         sb.Append("The input has exactly ").Append(textos.Count).Append(textos.Count == 1 ? " string" : " strings")
           .Append(". Each string is ONE item even when it contains line breaks (\\n): keep its line breaks inside that item, ")
-          .Append("and never merge two strings into one or split one into two. ");
+          .Append("and never merge two strings into one or split one into two. ")
+          .Append("Chinese has no spaces, but the target language may: put a normal space between a word and a placeholder next to it when the grammar needs it (\"消耗{0}\" -> \"Cost {0}\", not \"Cost{0}\"). ");
         // lote com termo curto (vai entrar no glossario): a IA tambem diz a categoria de cada um, e ja traduz
         // seguindo a instrucao dessa categoria. Lote com frase (e "extrair termos" ligado): a IA tambem devolve
         // os nomes proprios e termos do jogo que achou dentro das frases (alimenta o glossario).

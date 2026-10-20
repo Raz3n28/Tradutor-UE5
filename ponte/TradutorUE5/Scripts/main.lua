@@ -21,7 +21,8 @@ local CLASSES = { "TextBlock", "RichTextBlock" }
 -- (o mundo esta sendo montado e ler widgets pela metade derruba o jogo)
 local TELAS_CARREGANDO = { "WBP_LoadingScreen_C" }
 local INTERVALO_CONFERIR_MS = 150 -- de quanto em quanto tempo confere os textos que ja traduziu
-local GANCHO_TEXTO = true         -- gancho no SetText: o jogo trocou um texto (hover...) -> confere ja no proximo ciclo
+-- SEM gancho no SetText: o jogo chama SetText tambem de outras threads (carregamento em segundo plano) e o
+-- Lua do UE4SS nao aguenta rodar em duas threads ("Ref was not function" no log e crash logo depois).
 
 ---------------- pastas ----------------
 local function PastaDoMod()
@@ -77,7 +78,6 @@ local encolher = false   -- encolher a fonte do texto traduzido maior que o orig
 local encMin = 0.6
 local refazerFonte = false
 local devolver = false   -- o cerebro mandou devolver os originais (feito no proximo ciclo, na lista viva)
-local mexeu = false      -- o gancho do SetText viu o jogo trocar algum texto
 local saida = {}      -- linhas para pedidos.txt
 local lidoResp = 0
 local naTela = {}     -- endereco do widget -> true (widget de verdade) | false (molde: Default__ ou template)
@@ -240,13 +240,31 @@ local function Pronto(w)
     return not ok or not ruim
 end
 
+-- Uma tela de carregamento esta aparecendo? (IsInViewport; se nao existir no jogo, nao pausa nada)
+local avisouTela = {}
 local function Carregando()
     for _, nome in ipairs(TELAS_CARREGANDO) do
         local ok, sim = pcall(function()
             local t = FindFirstOf(nome)
-            return t ~= nil and t:IsValid() and t:IsInViewport()
+            if t == nil or not t:IsValid() then return false end
+            local okV, vp = pcall(function() return t:IsInViewport() end)
+            if not avisouTela[nome] then
+                avisouTela[nome] = true
+                local okVis, vis = pcall(function() return t:IsVisible() end)
+                Log("tela de carregamento " .. nome .. ": IsInViewport=" .. tostring(okV and vp or ("erro " .. tostring(vp)))
+                    .. " IsVisible=" .. tostring(okVis and vis or "erro"))
+            end
+            return okV and vp
         end)
         if ok and sim then return true end
+    end
+    return false
+end
+
+-- textos da propria tela de carregamento ficam como estao (ela aparece enquanto o mundo e montado)
+local function DaTelaDeCarregamento(pista)
+    for _, nome in ipairs(TELAS_CARREGANDO) do
+        if pista:find(nome, 1, true) then return true end
     end
     return false
 end
@@ -258,6 +276,7 @@ local function EhDeVerdade(w, endereco)
     if r ~= nil then return r end
     local nome = Pista(w)
     r = nome ~= "" and not nome:find("Default__", 1, true) and not nome:find("_C:WidgetTree", 1, true)
+        and not DaTelaDeCarregamento(nome)
     naTela[endereco] = r
     return r
 end
@@ -402,11 +421,10 @@ local function Tick()
     if not ok then Log("erro gravando pedidos: " .. tostring(erro)) end
 end
 
--- ciclo rapido (INTERVALO_CONFERIR_MS): so os textos ja traduzidos, e so quando o gancho viu o jogo
--- trocar algum texto (ou para aplicar a fonte nova)
+-- ciclo rapido (INTERVALO_CONFERIR_MS): so os textos ja traduzidos (o jogo escreveu o original de novo
+-- no hover, por exemplo) e a fonte nova quando o jogador mexe no "encolher"
 local function Conferir()
-    if not (mexeu or refazerFonte) or devolver or not PodeVarrer() then return end
-    mexeu = false
+    if devolver or next(aplicados) == nil and not refazerFonte or not PodeVarrer() then return end
     local ok, erro = pcall(Passar, not refazerFonte)
     if not ok then Log("erro conferindo: " .. tostring(erro)) end
 end
@@ -463,18 +481,6 @@ local okMapa2 = pcall(RegisterLoadMapPostHook, function()
     Log("mapa carregado: volta em " .. (ESPERA_MAPA_MS / 1000) .. " s")
 end)
 if not (okMapa1 and okMapa2) then Log("sem gancho de troca de mapa") end
-
--- o jogo trocou o texto de algum widget (hover, troca de aba...): so marca. Quem troca e o Conferir,
--- no proximo ciclo rapido, pela lista viva. (O gancho nao guarda o widget nem cria funcao nova.)
-local function NoSetText()
-    mexeu = true
-end
-if GANCHO_TEXTO then
-    for _, cls in ipairs(CLASSES) do
-        local ok = pcall(RegisterHook, "/Script/UMG." .. cls .. ":SetText", NoSetText)
-        Log("gancho " .. cls .. ":SetText " .. (ok and "ok" or "nao deu"))
-    end
-end
 
 RegisterKeyBind(TECLA_MENU, function()
     ExecuteInGameThread(AbrirMenu)

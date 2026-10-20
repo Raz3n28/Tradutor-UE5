@@ -161,7 +161,8 @@ internal static class Tema
             MaximumSize = new Size(largura, 0),
             ForeColor = Texto,
             BackColor = System.Drawing.Color.Transparent,
-            FlatStyle = FlatStyle.Flat,
+            // caixinha padrao do Windows (o estilo "plano" desenhava o ✓ branco na caixa branca: invisivel)
+            FlatStyle = FlatStyle.Standard,
             Font = F(9f),
             Margin = new Padding(0, D(2), 0, D(2)),
             Cursor = Cursors.Hand
