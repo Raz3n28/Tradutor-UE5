@@ -5,7 +5,6 @@
 -- Conversa com o cerebro por dois arquivos na pasta "troca" (ver cerebro/Ponte.cs):
 --   pedidos.txt   (ponte -> cerebro)  T<TAB>texto<TAB>pista | M (menu) | I (jogo abriu)
 --   respostas.txt (cerebro -> ponte)  R<TAB>texto<TAB>traducao | N<TAB>texto | X (devolver originais)
---                                     C<TAB>encolher(0/1)<TAB>minimo% (config da ponte, vem do menu)
 
 ---------------- ajustes ----------------
 local INTERVALO_MS = 500          -- de quanto em quanto tempo olha a tela
@@ -17,12 +16,11 @@ local ESPERA_MAPA_MS = 3000       -- espera depois que um mapa terminou de carre
 local TECLA_MENU = Key.F8
 local ABRIR_CEREBRO = true        -- abre o TradutorCerebro.exe junto com o jogo
 local CLASSES = { "TextBlock", "RichTextBlock" }
--- telas de carregamento do jogo: enquanto uma delas estiver na tela, a ponte nao mexe em nada
--- (o mundo esta sendo montado e ler widgets pela metade derruba o jogo)
+-- telas de carregamento do jogo: os textos delas ficam como estao (aparecem enquanto o mundo e montado)
 local TELAS_CARREGANDO = { "WBP_LoadingScreen_C" }
-local INTERVALO_CONFERIR_MS = 150 -- de quanto em quanto tempo confere os textos que ja traduziu
--- SEM gancho no SetText: o jogo chama SetText tambem de outras threads (carregamento em segundo plano) e o
--- Lua do UE4SS nao aguenta rodar em duas threads ("Ref was not function" no log e crash logo depois).
+-- ESTABILIDADE: a ponte so le a tela a cada INTERVALO_MS e usa o minimo de funcoes do UE4SS (IsValid,
+-- GetAddress, GetFullName, Text, SetText). Nas versoes que liam mais vezes ou usavam mais funcoes
+-- (gancho no SetText, conferencia a cada 150 ms, marcas internas, fonte) o UE4SS beta derrubava o jogo.
 
 ---------------- pastas ----------------
 local function PastaDoMod()
@@ -73,10 +71,7 @@ end
 local trad = {}       -- original -> traducao (false = o cerebro disse para nao traduzir)
 local pedidos = {}    -- original -> true (ja mandado, esperando)
 local nossas = {}     -- traducao -> original (texto que a ponte colocou na tela)
-local aplicados = {}  -- endereco do widget -> { o = original, t = traducao, tam = fonte original, atual, rico }
-local encolher = false   -- encolher a fonte do texto traduzido maior que o original (menu do cerebro)
-local encMin = 0.6
-local refazerFonte = false
+local aplicados = {}  -- endereco do widget -> { o = original, t = traducao }
 local devolver = false   -- o cerebro mandou devolver os originais (feito no proximo ciclo, na lista viva)
 local saida = {}      -- linhas para pedidos.txt
 local lidoResp = 0
@@ -110,58 +105,6 @@ local function Pista(w)
     return ok and nome or ""
 end
 
----------------- fonte (encolher o texto que nao cabe) ----------------
--- largura aproximada: chines/japones/coreano = 1, espaco = 0.3, resto = 0.55 (tags <...> nao contam)
-local function Largura(s)
-    s = s:gsub("<[^>]*>", "")
-    local l = 0
-    for _, c in utf8.codes(s) do
-        if c >= 0x2E80 then l = l + 1
-        elseif c == 32 then l = l + 0.3
-        else l = l + 0.55 end
-    end
-    return l
-end
-
-local avisouFonte = false
-local function MudarFonte(w, tamanho)
-    local ok, err = pcall(function()
-        local f = w.Font
-        f.Size = tamanho
-        w:SetFont(f)
-    end)
-    if not avisouFonte then
-        avisouFonte = true
-        Log("encolher fonte: " .. (ok and "ok" or ("falhou: " .. tostring(err))))
-    end
-    return ok
-end
-
--- so a familia TextBlock (o RichTextBlock tira a fonte dos estilos). w = widget vivo agora.
-local function Encolher(w, a)
-    if a.rico then return end
-    local alvo
-    if not a.tam then
-        if not encolher then return end
-        local ok, t = pcall(function() return w.Font.Size end)
-        if not ok or not t or t <= 0 then return end
-        a.tam = t
-    end
-    if encolher then
-        local ok1, lo = pcall(Largura, a.o)
-        local ok2, lt = pcall(Largura, a.t)
-        if not ok1 or not ok2 then return end
-        local fator = 1
-        if lt > lo and lt > 0 then fator = math.max(encMin, lo / lt) end
-        alvo = math.floor(a.tam * fator + 0.5)
-    else
-        alvo = a.tam
-    end
-    if alvo ~= (a.atual or a.tam) then
-        if MudarFonte(w, alvo) then a.atual = alvo end
-    end
-end
-
 ---------------- respostas do cerebro ----------------
 local function Linha(l)
     local tipo, a, b = l:match("^([^\t]*)\t?([^\t]*)\t?(.*)$")
@@ -176,14 +119,6 @@ local function Linha(l)
         pedidos[o] = nil
     elseif tipo == "X" then
         devolver = true
-    elseif tipo == "C" then
-        local novoEnc = a == "1"
-        local novoMin = math.max(0.4, math.min(0.95, (tonumber(b) or 60) / 100))
-        if novoEnc ~= encolher or novoMin ~= encMin then
-            encolher, encMin = novoEnc, novoMin
-            refazerFonte = true
-            Log("encolher fonte: " .. (encolher and "ligado" or "desligado") .. " (minimo " .. math.floor(encMin * 100) .. "%)")
-        end
     end
 end
 
@@ -209,58 +144,6 @@ local function LerRespostas()
 end
 
 ---------------- vigiar a tela ----------------
--- Marcas da Unreal de objeto que nao esta pronto: molde (CDO/archetype), ainda carregando ou sendo
--- destruido. Ler um objeto assim derruba o jogo sem o pcall pegar. Os valores vem das tabelas do
--- UE4SS (EObjectFlags / EInternalObjectFlags); se faltarem, usa os numeros da Unreal 5.
-local function Mascara(tabela, nomes, reserva)
-    local m = 0
-    local ok = pcall(function()
-        local t = _G[tabela]
-        for _, n in ipairs(nomes) do
-            local v = t and t[n]
-            if type(v) == "number" then m = m | v end
-        end
-    end)
-    if not ok or m == 0 then m = reserva end
-    return m
-end
-local FLAGS_RUINS = Mascara("EObjectFlags", { "RF_ClassDefaultObject", "RF_ArchetypeObject", "RF_NeedInitialization",
-    "RF_NeedLoad", "RF_NeedPostLoad", "RF_NeedPostLoadSubobjects", "RF_BeginDestroyed", "RF_FinishDestroyed" },
-    0x10 | 0x20 | 0x200 | 0x400 | 0x1000 | 0x2000 | 0x8000 | 0x10000)
-local INTERNAS_RUINS = Mascara("EInternalObjectFlags", { "Unreachable", "Garbage", "PendingKill", "Async",
-    "AsyncLoading", "PendingConstruction" }, 0)
-
-local function Pronto(w)
-    local ok, ruim = pcall(function()
-        if w:HasAnyFlags(FLAGS_RUINS) then return true end
-        if INTERNAS_RUINS ~= 0 and w:HasAnyInternalFlags(INTERNAS_RUINS) then return true end
-        return false
-    end)
-    -- se o UE4SS nao tiver essas funcoes, segue com as outras protecoes
-    return not ok or not ruim
-end
-
--- Uma tela de carregamento esta aparecendo? (IsInViewport; se nao existir no jogo, nao pausa nada)
-local avisouTela = {}
-local function Carregando()
-    for _, nome in ipairs(TELAS_CARREGANDO) do
-        local ok, sim = pcall(function()
-            local t = FindFirstOf(nome)
-            if t == nil or not t:IsValid() then return false end
-            local okV, vp = pcall(function() return t:IsInViewport() end)
-            if not avisouTela[nome] then
-                avisouTela[nome] = true
-                local okVis, vis = pcall(function() return t:IsVisible() end)
-                Log("tela de carregamento " .. nome .. ": IsInViewport=" .. tostring(okV and vp or ("erro " .. tostring(vp)))
-                    .. " IsVisible=" .. tostring(okVis and vis or "erro"))
-            end
-            return okV and vp
-        end)
-        if ok and sim then return true end
-    end
-    return false
-end
-
 -- textos da propria tela de carregamento ficam como estao (ela aparece enquanto o mundo e montado)
 local function DaTelaDeCarregamento(pista)
     for _, nome in ipairs(TELAS_CARREGANDO) do
@@ -287,16 +170,12 @@ local function Texto(w)
     return nil
 end
 
--- w = widget vivo (veio do FindAllOf agora), rico = e RichTextBlock
-local function Processar(w, endereco, rico)
-    if not w:IsValid() or not Pronto(w) or not EhDeVerdade(w, endereco) then return end
+-- w = widget vivo (veio do FindAllOf agora)
+local function Processar(w, endereco)
+    if not w:IsValid() or not EhDeVerdade(w, endereco) then return end
     local txt = Texto(w)
     if txt == nil or txt == "" then return end
-    local a = aplicados[endereco]
-    if nossas[txt] then
-        if a and refazerFonte then Encolher(w, a) end
-        return
-    end
+    if nossas[txt] then return end
     local t = trad[txt]
     if t == nil then
         if not pedidos[txt] then
@@ -310,34 +189,24 @@ local function Processar(w, endereco, rico)
             primeiraTroca = false
             Log("primeira troca " .. (okSet and "ok" or "falhou"))
         end
-        if okSet then
-            -- o mesmo widget pode trocar de texto (aba, hover): a fonte original (tam) continua valendo
-            if not a then
-                a = { rico = rico }
-                aplicados[endereco] = a
-            end
-            a.o, a.t = txt, t
-            Encolher(w, a)
-        end
+        if okSet then aplicados[endereco] = { o = txt, t = t } end
     end
 end
 
--- passa por todos os textos vivos. soAplicados = so os que a ponte ja traduziu (conferencia rapida)
-local function Passar(soAplicados)
+-- passa por todos os textos vivos
+local function Passar()
     for _, cls in ipairs(CLASSES) do
-        local rico = cls == "RichTextBlock"
         local lista = FindAllOf(cls)
         if lista then
             for _, w in ipairs(lista) do
                 local e = Endereco(w)
-                if e and (not soAplicados or aplicados[e]) then
-                    local ok, erro = pcall(Processar, w, e, rico)
+                if e then
+                    local ok, erro = pcall(Processar, w, e)
                     if not ok then Log("erro num texto: " .. tostring(erro)) end
                 end
             end
         end
     end
-    refazerFonte = false
 end
 
 -- o cerebro pediu os originais de volta (pausou, limpou o cache...): so nos widgets vivos
@@ -354,7 +223,6 @@ local function DevolverOriginais()
                     pcall(function()
                         if w:IsValid() and Texto(w) == a.t then
                             w:SetText(FText(a.o))
-                            if a.tam and a.atual and a.atual ~= a.tam then MudarFonte(w, a.tam) end
                             n = n + 1
                         end
                     end)
@@ -373,7 +241,7 @@ local function Varrer()
         naTela = {}
         proxLimpeza = agora + 30
     end
-    Passar(false)
+    Passar()
 end
 
 local function Liberar(ms)
@@ -381,18 +249,8 @@ local function Liberar(ms)
 end
 
 local avisouVarrendo = false
-local avisouCarregando = false
 local function PodeVarrer()
     local agora = os.clock()
-    if Carregando() then
-        if not avisouCarregando then avisouCarregando = true; Log("tela de carregamento: pausado") end
-        return false
-    elseif avisouCarregando then
-        avisouCarregando = false
-        Log("tela de carregamento saiu")
-        Liberar(ESPERA_MAPA_MS)
-        return false
-    end
     if liberadoEm == nil and agora - inicio >= ESPERA_MAX_MS / 1000 then
         Log("o jogo nao avisou que o jogador entrou; comecando assim mesmo")
         liberadoEm = agora
@@ -419,14 +277,6 @@ local function Tick()
     end
     ok, erro = pcall(Gravar)
     if not ok then Log("erro gravando pedidos: " .. tostring(erro)) end
-end
-
--- ciclo rapido (INTERVALO_CONFERIR_MS): so os textos ja traduzidos (o jogo escreveu o original de novo
--- no hover, por exemplo) e a fonte nova quando o jogador mexe no "encolher"
-local function Conferir()
-    if devolver or next(aplicados) == nil and not refazerFonte or not PodeVarrer() then return end
-    local ok, erro = pcall(Passar, not refazerFonte)
-    if not ok then Log("erro conferindo: " .. tostring(erro)) end
 end
 
 local function AbrirMenu()
@@ -484,11 +334,6 @@ if not (okMapa1 and okMapa2) then Log("sem gancho de troca de mapa") end
 
 RegisterKeyBind(TECLA_MENU, function()
     ExecuteInGameThread(AbrirMenu)
-end)
-
-LoopAsync(INTERVALO_CONFERIR_MS, function()
-    ExecuteInGameThread(Conferir)
-    return false
 end)
 
 LoopAsync(INTERVALO_MS, function()

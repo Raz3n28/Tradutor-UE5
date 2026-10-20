@@ -106,9 +106,6 @@ internal static class LiveConfig
     public static bool VerificarGlossario = true;
     // pede para a IA traducao curta em texto curto (cabe no espaco do original)
     public static bool Encaixar = true;
-    // a ponte encolhe a fonte do texto traduzido que ficou maior que o original (ate EncolherMin %)
-    public static bool Encolher = false;
-    public static int EncolherMin = 60;
     // tamanho da janela do menu, em % (aba Interface)
     public static int Escala = 100;
 
@@ -206,8 +203,6 @@ internal static class LiveConfig
             else if (k == "extrair_termos") ExtrairTermos = v != "0";
             else if (k == "verificar_glossario") VerificarGlossario = v != "0";
             else if (k == "encaixar") Encaixar = v != "0";
-            else if (k == "encolher") Encolher = v == "1";
-            else if (k == "encolher_min") { if (int.TryParse(v, out n)) EncolherMin = Mathf.Clamp(n, 40, 95); }
             else if (k == "escala") { if (int.TryParse(v, out n)) Escala = Mathf.Clamp(n, 80, 160); }
             else if (k == "menu_idioma") { if (int.TryParse(v, out n)) LiveTxt.Atual = n; }
             else if (k == "estilo") { if (int.TryParse(v, out n)) Estilo = Mathf.Clamp(n, 0, Estilos.Length - 1); }
@@ -241,8 +236,6 @@ internal static class LiveConfig
             sb.AppendLine("extrair_termos=" + (ExtrairTermos ? "1" : "0"));
             sb.AppendLine("verificar_glossario=" + (VerificarGlossario ? "1" : "0"));
             sb.AppendLine("encaixar=" + (Encaixar ? "1" : "0"));
-            sb.AppendLine("encolher=" + (Encolher ? "1" : "0"));
-            sb.AppendLine("encolher_min=" + EncolherMin);
             sb.AppendLine("escala=" + Escala);
             sb.AppendLine("menu_idioma=" + LiveTxt.Atual);
             sb.AppendLine("estilo=" + Estilo);

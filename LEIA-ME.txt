@@ -41,8 +41,6 @@ GLOSSARIO INTELIGENTE (modo com chave)
 
 TEXTO QUE NAO CABE
 - Estilo > "Traducoes curtas onde o espaco e curto" (ligado): a IA tenta caber no espaco do original.
-- Avancado > "Encolher a fonte..." (desligado, experimental): a ponte diminui a fonte do texto traduzido que
-  ficou maior que o original, ate o tamanho minimo escolhido. Se o jogo travar, desligue.
 
 LINHA COM VARIOS TERMOS
 "伏羲脉 · 河洛氏 · 无根浮萍": cada parte e traduzida sozinha (pelo glossario) e a linha e montada de novo.

@@ -1560,24 +1560,6 @@ internal sealed class Janela : Form
             Dica(ritmo, LiveTxt.T("rpm_aviso"));
         }
 
-        // texto que nao cabe: a ponte encolhe a fonte (opcional; mexe direto no widget do jogo)
-        FlowLayoutPanel enc = Cartao(LiveTxt.T("av_encolher"));
-        CheckBox encolher = Tema.Marca(LiveTxt.T("enc_ligar"), LiveConfig.Encolher, Interna);
-        encolher.CheckedChanged += delegate { LiveConfig.Encolher = encolher.Checked; LiveConfig.Marcar(); };
-        enc.Controls.Add(encolher);
-        FlowLayoutPanel le = Tema.Linha(Interna);
-        Label re = Tema.Rotulo(LiveTxt.T("enc_min"), Tema.D(220), Tema.Texto, 9f);
-        re.AutoSize = false;
-        re.Width = Tema.D(220);
-        re.Height = Tema.D(24);
-        le.Controls.Add(re);
-        NumericUpDown min = Tema.Numero(40, 95, LiveConfig.EncolherMin, Tema.D(90));
-        min.Increment = 5;
-        min.ValueChanged += delegate { LiveConfig.EncolherMin = (int)min.Value; LiveConfig.Marcar(); };
-        le.Controls.Add(min);
-        enc.Controls.Add(le);
-        Dica(enc, LiveTxt.T("enc_dica"));
-
         FlowLayoutPanel ferr = Cartao(LiveTxt.T("av_ferr"));
         FlowLayoutPanel l3 = Tema.Linha(Interna + Tema.D(6));
         int bw = (Interna - Tema.D(12)) / 3;
