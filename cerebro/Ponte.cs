@@ -86,6 +86,53 @@ internal static class Ponte
     // quantos textos o lugar ja mostrou ao mesmo tempo (2 ou mais = lista; 1 = dica do mouse, titulo...)
     private static readonly Dictionary<string, int> vezes = new Dictionary<string, int>();
 
+    // lugares dentro de caixa de informacao (dica do mouse, resumo, detalhes): o automatico nao mexe neles
+    private static readonly HashSet<string> dicas = new HashSet<string>();
+    private static readonly string[] palavrasDica = new string[] { "info", "tip", "desc", "detail", "summary", "hover", "popup" };
+
+    public static bool Dica(string lugar)
+    {
+        if (lugar == null) return false;
+        if (dicas.Contains(lugar)) return true;
+        int barra = lugar.IndexOf(" / ", StringComparison.Ordinal);
+        string dono = barra >= 0 ? lugar.Substring(0, barra) : lugar;
+        for (int k = 0; k < palavrasDica.Length; k++)
+            if (dono.IndexOf(palavrasDica[k], StringComparison.Ordinal) >= 0) return true;
+        return false;
+    }
+
+    // Lugar a partir da pista (nome completo do texto), igual ao Lugar() da ponte (main.lua), e se ele esta
+    // dentro de uma caixa de informacao: o dono ou um widget blueprint acima dele (..._C) tem info/tip/desc...
+    // no nome. Containers sem _C (ex.: BS_RoleInfo, que e a lista de clas) nao contam.
+    private static string LugarDaPista(string pista, out bool dica)
+    {
+        dica = false;
+        if (string.IsNullOrEmpty(pista)) return "";
+        string p = pista.ToLowerInvariant();
+        int esp = p.IndexOf(' ');
+        if (esp >= 0) p = p.Substring(esp + 1);
+        string[] seg = p.Split(new char[] { '.', ':', '/' }, StringSplitOptions.RemoveEmptyEntries);
+        if (seg.Length == 0) return "";
+        string widget = seg[seg.Length - 1];
+        if (widget == "widgettree" || widget.EndsWith("_c", StringComparison.Ordinal)) widget = "";
+        string dono = "";
+        for (int i = seg.Length - 1; i >= 0; i--)
+        {
+            System.Text.RegularExpressions.Match m = System.Text.RegularExpressions.Regex.Match(seg[i], "^(.+)_c(_\\d+)?$");
+            if (!m.Success) continue;
+            string nome = m.Groups[1].Value;
+            for (int k = 0; k < palavrasDica.Length; k++)
+                if (nome.IndexOf(palavrasDica[k], StringComparison.Ordinal) >= 0) dica = true;
+            if (dono.Length > 0) continue;
+            string[] prefixos = new string[] { "wbp_", "wb_", "w_", "ui_", "umg_", "bp_" };
+            for (int k = 0; k < prefixos.Length; k++)
+                if (nome.StartsWith(prefixos[k], StringComparison.Ordinal)) { nome = nome.Substring(prefixos[k].Length); break; }
+            dono = nome.TrimEnd('0', '1', '2', '3', '4', '5', '6', '7', '8', '9');
+        }
+        if (dono.Length == 0) return widget;
+        return widget.Length == 0 ? dono : dono + " / " + widget;
+    }
+
     public static int Vezes(string lugar)
     {
         int n;
@@ -221,7 +268,11 @@ internal static class Ponte
             case "T":
                 if (p.Length < 2) return;
                 Recebidos++;
-                Responder(Desescapar(p[1]), p.Length > 2 ? Desescapar(p[2]) : "");
+                string pista = p.Length > 2 ? Desescapar(p[2]) : "";
+                bool dica;
+                string lp = LugarDaPista(pista, out dica);
+                if (dica && lp.Length > 0) dicas.Add(lp);
+                Responder(Desescapar(p[1]), pista);
                 break;
             case "L":
                 if (p.Length < 3) return;

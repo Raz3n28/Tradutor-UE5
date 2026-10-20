@@ -27,7 +27,7 @@ MENU (F8)
 05 Glossario   termos com categoria, nivel (Novo -> Confirmado -> Travado), onde apareceram e conflitos
 06 Categorias  13 categorias de cultivo (Personagem, Lugar, Seita, Reino, Tecnica, Pilula, Artefato, Item,
                Atributo, Missao, Menu, Titulo, Outros) + ate 8 suas; palavras-chave e instrucao para a IA
-07 Avancado    pedidos por minuto, textos por pedido, exportar/importar, limpar cache
+07 Configuracoes pedidos por minuto, textos por pedido, exportar/importar, limpar cache
 08 Log         o que o tradutor esta fazendo
 09 Interface   tamanho da janela do menu
 Embaixo, a esquerda: idioma do menu (PT EN ES RU FR DE).
@@ -44,6 +44,9 @@ GLOSSARIO INTELIGENTE (modo com chave)
 TEXTO QUE NAO CABE
 - Estilo > "Traducoes curtas onde o espaco e curto" (ligado): a IA tenta caber no espaco do original.
 
+CONFIGURACOES DE VIDEO
+Ao aplicar configuracoes de video a ponte para por 6 s (o jogo refaz as telas nessa hora).
+
 ABREVIACOES (texto que nao cabe, com o nome inteiro na dica do mouse)
 Jeito rapido: jogue com o tradutor aberto passando pelas telas que estouram. No Glossario filtre (ex.: Atributo),
 aperte "Selecionar tudo" e depois "Abreviar e mostrar": a IA abrevia (modo com chave) e as listas onde esses
@@ -51,6 +54,8 @@ termos aparecem ficam apertadas. A dica do mouse (um texto por vez) continua com
 Jeito manual: Glossario > "Telas apertadas" mostra cada tela pelos textos dela (antes -> depois); marque ou
 desmarque. Atributo vira sigla (Insight -> INS), nomes ficam mais curtos (Heluo Clan -> Heluo), rotulos viram
 forma curta (Allocate -> Alloc.). Para mudar uma abreviacao, edite a coluna "Abrev.".
+Caixas de informacao (dica do mouse, resumo, detalhes) nunca sao marcadas pelo automatico: la fica o nome
+inteiro. Se quiser abreviar uma delas, marque na mao em "Telas apertadas".
 
 LINHA COM VARIOS TERMOS
 "伏羲脉 · 河洛氏 · 无根浮萍": cada parte e traduzida sozinha (pelo glossario) e a linha e montada de novo.
@@ -61,6 +66,6 @@ chines, mesma categoria), ele vai junto no pedido para a IA seguir o seu padrao.
 Ex.: travou 青城派 = "Seita Qingcheng" -> o 峨眉派 novo sai "Seita Emei". Liga/desliga na aba Estilo.
 
 TECLA DE PAUSAR / CONTINUAR
-Aba Avancado > Teclas (padrao F9). Funciona com o jogo na frente, sem abrir o menu; um som avisa
+Aba Configuracoes > Teclas (padrao F9). Funciona com o jogo na frente, sem abrir o menu; um som avisa
 (agudo = traduzindo, grave = pausado). E uma tecla global do Windows: enquanto o tradutor estiver aberto,
 ela nao chega no jogo nem em outros programas. F8 continua sendo a tecla do menu.

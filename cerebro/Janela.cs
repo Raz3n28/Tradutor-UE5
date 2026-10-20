@@ -286,6 +286,22 @@ internal sealed class Janela : Form
         if (corpo == null || corpo.ClientSize.Width == ultimaLargura) return;
         ultimaLargura = corpo.ClientSize.Width;
         if (aba != AbaGlos && aba != AbaLog) MostrarAba(aba);
+        else if (aba == AbaGlos) AjustarGlossario();
+    }
+
+    // a pagina do glossario nao e remontada (perderia a tabela): so as linhas mudam de largura e quebram de novo
+    private void AjustarGlossario()
+    {
+        int w = Math.Max(Tema.D(480), corpo.ClientSize.Width - Tema.D(8));
+        larguraDet = w - Tema.D(24);
+        for (int i = 0; i < larguraGlos.Count; i++)
+        {
+            Control c = larguraGlos[i].Key;
+            if (c.IsDisposed) continue;
+            int lw = w - larguraGlos[i].Value;
+            c.MaximumSize = new Size(lw, 0);
+            if (c is FlowLayoutPanel) c.MinimumSize = new Size(lw, 0);
+        }
     }
 
     // ---------------- relogio ----------------
@@ -1085,6 +1101,8 @@ internal sealed class Janela : Form
     private FlowLayoutPanel glosTelas;
     private Label glosAbrStatus;
     private int larguraDet;
+    // controles do glossario que acompanham a largura da janela (controle, quanto tirar da largura)
+    private readonly List<KeyValuePair<Control, int>> larguraGlos = new List<KeyValuePair<Control, int>>();
     private FlowLayoutPanel filtros;
     private int versaoGrade = -1;
     private readonly List<TermoGlossario> filtrado = new List<TermoGlossario>();
@@ -1115,9 +1133,12 @@ internal sealed class Janela : Form
         topo.Controls.Add(Tema.Botao(LiveTxt.T("glos_novo"), Tema.D(150), Tema.D(28), 1, delegate { NovoTermo(); }));
         topo.Controls.Add(Tema.Botao(LiveTxt.T("abr_telas_bt"), Tema.D(170), Tema.D(28), 0, delegate { Telas(); }));
         t.Controls.Add(topo);
+        larguraGlos.Clear();
+        larguraGlos.Add(new KeyValuePair<Control, int>(topo, 0));
 
         // filtros: Todos, Conflitos, Novos, Travados e as categorias (com contagem)
         filtros = Tema.Linha(w);
+        larguraGlos.Add(new KeyValuePair<Control, int>(filtros, 0));
         t.Controls.Add(filtros);
 
         grade = new DataGridView
@@ -1169,7 +1190,6 @@ internal sealed class Janela : Form
         grade.Columns.Add(cc);
         grade.Columns.Add(new DataGridViewTextBoxColumn { Name = "nivel", HeaderText = LiveTxt.T("col_nivel"), ReadOnly = true, FillWeight = 16 });
         grade.Columns.Add(new DataGridViewCheckBoxColumn { Name = "trava", HeaderText = LiveTxt.T("col_trava"), FillWeight = 7 });
-        grade.Columns.Add(new DataGridViewTextBoxColumn { Name = "onde", HeaderText = LiveTxt.T("col_onde"), ReadOnly = true, FillWeight = 15 });
 
         grade.CellValueChanged += GradeMudou;
         grade.CurrentCellDirtyStateChanged += delegate
@@ -1197,6 +1217,9 @@ internal sealed class Janela : Form
         larguraDet = w - Tema.D(24);
         glosTelas = Tema.Linha(larguraDet);
         det.Controls.Add(glosTelas);
+        // ajuda dos botoes de abreviar
+        Label ajuda = Tema.Rotulo(LiveTxt.T("abr_ajuda"), larguraDet, Tema.Fraco, 8.5f);
+        det.Controls.Add(ajuda);
         FlowLayoutPanel acoes = Tema.Linha(w - Tema.D(24));
         btnUsarNova = Tema.Botao(LiveTxt.T("glos_usar_nova"), Tema.D(200), Tema.D(28), 1, delegate { ResolverSelecionado(true); });
         btnManter = Tema.Botao(LiveTxt.T("glos_manter"), Tema.D(200), Tema.D(28), 0, delegate { ResolverSelecionado(false); });
@@ -1210,10 +1233,16 @@ internal sealed class Janela : Form
         acoes.Controls.Add(glosAbrStatus);
         det.Controls.Add(acoes);
         t.Controls.Add(det);
+        larguraGlos.Add(new KeyValuePair<Control, int>(det, 0));
+        larguraGlos.Add(new KeyValuePair<Control, int>(glosInfo, Tema.D(24)));
+        larguraGlos.Add(new KeyValuePair<Control, int>(glosTelas, Tema.D(24)));
+        larguraGlos.Add(new KeyValuePair<Control, int>(ajuda, Tema.D(24)));
+        larguraGlos.Add(new KeyValuePair<Control, int>(acoes, Tema.D(24)));
 
         glosContagem = Tema.Rotulo("", w, Tema.Fraco, 8.5f);
         glosContagem.Margin = new Padding(0, Tema.D(6), 0, 0);
         t.Controls.Add(glosContagem);
+        larguraGlos.Add(new KeyValuePair<Control, int>(glosContagem, 0));
 
         versaoGrade = -1;
         PreencherGrade();
@@ -1305,14 +1334,13 @@ internal sealed class Janela : Form
         for (int i = 0; i < max; i++)
         {
             TermoGlossario t = filtrado[i];
-            int r = grade.Rows.Add(t.Original, t.Traducao, t.Curta ?? "", Categorias.Nome(t.Cat), Nivel(t), t.Travado, t.Onde);
+            int r = grade.Rows.Add(t.Original, t.Traducao, t.Curta ?? "", Categorias.Nome(t.Cat), Nivel(t), t.Travado);
             DataGridViewRow row = grade.Rows[r];
             if (t.Conflito) row.Cells["nivel"].Style.ForeColor = Tema.Aviso;
             else if (t.Travado) row.Cells["nivel"].Style.ForeColor = Tema.Destaque;
             else if (t.Confirmado) row.Cells["nivel"].Style.ForeColor = Tema.Ok;
             else row.Cells["nivel"].Style.ForeColor = Tema.Fraco;
             row.Cells["cat"].Style.ForeColor = Tema.Cor(Categorias.Cor(t.Cat));
-            row.Cells["onde"].Style.ForeColor = Tema.Fraco;
             if (t == selAntes) voltar = r;
         }
         grade.ResumeLayout();
@@ -1413,7 +1441,6 @@ internal sealed class Janela : Form
         string s = t.Original + "  →  " + t.Traducao;
         if (t.Conflito) s += "\n" + LiveTxt.F("glos_conflito_txt", t.Alternativa);
         if (!string.IsNullOrEmpty(t.Exemplo)) s += "\n" + LiveTxt.T("glos_exemplo") + " " + t.Exemplo;
-        if (!string.IsNullOrEmpty(t.Onde)) s += "\n" + LiveTxt.T("col_onde") + ": " + t.Onde;
         glosInfo.Text = s;
         glosInfo.ForeColor = t.Conflito ? Tema.Aviso : Tema.Texto;
     }
@@ -1453,6 +1480,10 @@ internal sealed class Janela : Form
     {
         List<TermoGlossario> sel = Selecionados();
         if (sel.Count == 0) return;
+        // lista inteira sem filtrar a categoria: confirma (titulos, menus e nomes de tudo junto)
+        if (filtroGlos == FiltroTodos && sel.Count > 20
+            && MessageBox.Show(this, LiveTxt.F("abr_conf_todos", sel.Count), LiveTxt.T("abr_mostrar"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            return;
         Abreviador.Iniciar(sel);
         int marcadas = 0;
         for (int i = 0; i < sel.Count; i++)
@@ -1460,13 +1491,13 @@ internal sealed class Janela : Form
             List<string> ls = Ponte.Lugares(sel[i].Original);
             for (int k = 0; k < ls.Count; k++)
             {
-                if (LiveConfig.TelasCurtas.Contains(ls[k]) || Ponte.Vezes(ls[k]) < 2) continue;
+                // so listas (2+ textos juntos) e nunca caixa de informacao (dica do mouse, resumo)
+                if (LiveConfig.TelasCurtas.Contains(ls[k]) || Ponte.Vezes(ls[k]) < 2 || Ponte.Dica(ls[k])) continue;
                 Ponte.MarcarTela(ls[k], true);
                 marcadas++;
             }
         }
         if (marcadas == 0) Ponte.Reenviar = true;
-        if (!Abreviador.Rodando && Abreviador.Status.Length == 0) Abreviador.Status = LiveTxt.F("abr_marcadas", marcadas);
         MostrarSelecionado();
     }
 
@@ -1500,8 +1531,13 @@ internal sealed class Janela : Form
             });
             foreach (string l in LiveConfig.TelasCurtas) if (!ls.Contains(l)) ls.Add(l);
             List<CheckBox> caixas = new List<CheckBox>();
+            List<bool> ehDica = new List<bool>();
             FlowLayoutPanel bts = Tema.Linha(w);
-            bts.Controls.Add(Tema.Botao(LiveTxt.T("abr_marcar_todas"), Tema.D(170), Tema.D(28), 0, delegate { foreach (CheckBox c in caixas) c.Checked = true; }));
+            bts.Controls.Add(Tema.Botao(LiveTxt.T("abr_marcar_todas"), Tema.D(300), Tema.D(28), 0, delegate
+            {
+                // caixas de informacao ficam de fora (se quiser, marca uma por uma)
+                for (int k = 0; k < caixas.Count; k++) if (!ehDica[k]) caixas[k].Checked = true;
+            }));
             bts.Controls.Add(Tema.Botao(LiveTxt.T("abr_desmarcar_todas"), Tema.D(170), Tema.D(28), 0, delegate { foreach (CheckBox c in caixas) c.Checked = false; }));
             f.Controls.Add(bts);
             if (ls.Count == 0) f.Controls.Add(Tema.Rotulo(LiveTxt.T("abr_sem_telas"), w, Tema.Aviso, 9f));
@@ -1522,8 +1558,9 @@ internal sealed class Janela : Form
                 cb.Margin = new Padding(0, Tema.D(10), 0, 0);
                 cb.CheckedChanged += delegate { Ponte.MarcarTela(lugar, cb.Checked); };
                 caixas.Add(cb);
+                ehDica.Add(Ponte.Dica(lugar));
                 f.Controls.Add(cb);
-                string tipo = Ponte.Vezes(lugar) >= 2 ? LiveTxt.T("abr_tipo_lista") : LiveTxt.T("abr_tipo_um");
+                string tipo = Ponte.Dica(lugar) ? LiveTxt.T("abr_tipo_dica") : Ponte.Vezes(lugar) >= 2 ? LiveTxt.T("abr_tipo_lista") : LiveTxt.T("abr_tipo_um");
                 Label lb = Tema.Rotulo(tipo + "  ·  " + LiveTxt.F("abr_n_textos", textos.Count) + "  ·  " + lugar, w, Tema.Fraco, 7.5f);
                 lb.Margin = new Padding(Tema.D(20), 0, 0, 0);
                 f.Controls.Add(lb);

@@ -506,7 +506,11 @@ internal static class Provedores
         if (LiveConfig.Encaixar && comCategoria)
             sb.Append("\nScreen space: short strings (names, labels, buttons, menu items) must fit about the same width as the source. ")
               .Append("One Chinese character is about as wide as two Latin letters, so keep each short translation to at most about 2 letters per Chinese character of its source ")
-              .Append("(choose a shorter synonym or abbreviate if needed). Sentences and descriptions are not limited.");
+              .Append("(choose a shorter synonym or abbreviate if needed), e.g. 古画 -> Paintings, 炎黄纹饰 -> Yanhuang Art, 食药 -> Meds. ")
+              .Append("This matters most for menu items, tabs and column headers of 2-4 Chinese characters: never make them long phrases. ")
+              .Append("Sentences and descriptions are not limited.");
+        // numero por extenso deixa menu e titulo 3x maior ("Cento e Oito Tecnicas")
+        sb.Append("\nNumbers: in names, titles, menu items and labels write numbers as digits (百零八战技 -> 108 Battle Arts, 三十六神通 -> 36 Divine Powers), never spelled out.");
         string extra = LiveConfig.PromptExtra;
         if (extra != null && extra.Trim().Length > 0)
             sb.Append("\nExtra instructions from the player (follow them, but the hard rules above always win): ").Append(extra.Trim());

@@ -20,6 +20,7 @@ local INTERVALO_MS = 500          -- de quanto em quanto tempo olha a tela
 local ESPERA_INICIO_MS = 5000     -- espera depois que o jogador entrou
 local ESPERA_MAX_MS = 60000       -- comeca mesmo assim se o jogo nunca avisar
 local ESPERA_MAPA_MS = 3000       -- espera depois que um mapa terminou de carregar
+local ESPERA_VIDEO_MS = 6000      -- espera depois de aplicar configuracoes de video (o jogo refaz as telas)
 local TECLA_MENU = Key.F8
 local ABRIR_CEREBRO = true        -- abre o TradutorCerebro.exe junto com o jogo
 local CLASSES = { "TextBlock", "RichTextBlock" }
@@ -80,6 +81,7 @@ local pedidos = {}    -- original -> true (ja mandado, esperando)
 local nossas = {}     -- traducao -> original (texto que a ponte colocou na tela)
 local aplicados = {}  -- endereco do widget -> { o = original, t = traducao }
 local curtas = {}     -- lugar -> { original -> abreviacao }
+local ehCurta = {}    -- abreviacao -> true (para voltar a traducao inteira quando a tela deixa de ser apertada)
 local avisados = {}   -- lugar .. "\1" .. original -> true (cerebro ja sabe que o texto aparece ali)
 local nesta = {}      -- lugar -> quantos textos dele nesta passada
 local maximo = {}     -- lugar -> maior quantidade ja avisada ao cerebro
@@ -136,6 +138,7 @@ local function Linha(l)
             curtas[lugar] = curtas[lugar] or {}
             curtas[lugar][o] = c
             nossas[c] = o
+            ehCurta[c] = true
         end
     elseif tipo == "K" then
         curtas = {}
@@ -248,11 +251,14 @@ local function Processar(w, endereco)
     if o then
         Avisar(o, lugar)
         -- texto ja e nosso: confere se este lugar quer a abreviacao ou a traducao inteira
+        -- (so escreve na tela quando a abreviacao entra ou sai; o resto fica como esta)
         local t = trad[o]
         if t then
             local c = curtas[lugar] and curtas[lugar][o]
-            local quer = c or t
-            if txt ~= quer and pcall(function() w:SetText(FText(quer)) end) then
+            local quer = nil
+            if c and txt ~= c then quer = c
+            elseif not c and ehCurta[txt] and txt ~= t then quer = t end
+            if quer and pcall(function() w:SetText(FText(quer)) end) then
                 aplicados[endereco] = { o = o, t = quer }
             end
         end
@@ -424,6 +430,18 @@ local okMapa2 = pcall(RegisterLoadMapPostHook, function()
     Log("mapa carregado: volta em " .. (ESPERA_MAPA_MS / 1000) .. " s")
 end)
 if not (okMapa1 and okMapa2) then Log("sem gancho de troca de mapa") end
+
+-- configuracoes de video aplicadas: o jogo refaz as telas (mudou a resolucao...). Ler um texto no meio disso
+-- derrubou o jogo, entao a ponte para um pouco.
+local function PausaVideo()
+    if liberadoEm ~= nil then
+        Liberar(ESPERA_VIDEO_MS)
+        Log("configuracoes de video aplicadas: pausado " .. (ESPERA_VIDEO_MS / 1000) .. " s")
+    end
+end
+for _, f in ipairs({ "ApplySettings", "ApplyResolutionSettings", "ApplyNonResolutionSettings", "SetScreenResolution", "SetFullscreenMode" }) do
+    pcall(RegisterHook, "/Script/Engine.GameUserSettings:" .. f, PausaVideo)
+end
 
 RegisterKeyBind(TECLA_MENU, function()
     ExecuteInGameThread(AbrirMenu)
