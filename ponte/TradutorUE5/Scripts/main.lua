@@ -17,6 +17,9 @@ local ESPERA_MAPA_MS = 3000       -- espera depois que um mapa terminou de carre
 local TECLA_MENU = Key.F8
 local ABRIR_CEREBRO = true        -- abre o TradutorCerebro.exe junto com o jogo
 local CLASSES = { "TextBlock", "RichTextBlock" }
+-- telas de carregamento do jogo: enquanto uma delas estiver na tela, a ponte nao mexe em nada
+-- (o mundo esta sendo montado e ler widgets pela metade derruba o jogo)
+local TELAS_CARREGANDO = { "WBP_LoadingScreen_C" }
 local INTERVALO_CONFERIR_MS = 150 -- de quanto em quanto tempo confere os textos que ja traduziu
 local GANCHO_TEXTO = true         -- gancho no SetText: o jogo trocou um texto (hover...) -> confere ja no proximo ciclo
 
@@ -206,6 +209,48 @@ local function LerRespostas()
 end
 
 ---------------- vigiar a tela ----------------
+-- Marcas da Unreal de objeto que nao esta pronto: molde (CDO/archetype), ainda carregando ou sendo
+-- destruido. Ler um objeto assim derruba o jogo sem o pcall pegar. Os valores vem das tabelas do
+-- UE4SS (EObjectFlags / EInternalObjectFlags); se faltarem, usa os numeros da Unreal 5.
+local function Mascara(tabela, nomes, reserva)
+    local m = 0
+    local ok = pcall(function()
+        local t = _G[tabela]
+        for _, n in ipairs(nomes) do
+            local v = t and t[n]
+            if type(v) == "number" then m = m | v end
+        end
+    end)
+    if not ok or m == 0 then m = reserva end
+    return m
+end
+local FLAGS_RUINS = Mascara("EObjectFlags", { "RF_ClassDefaultObject", "RF_ArchetypeObject", "RF_NeedInitialization",
+    "RF_NeedLoad", "RF_NeedPostLoad", "RF_NeedPostLoadSubobjects", "RF_BeginDestroyed", "RF_FinishDestroyed" },
+    0x10 | 0x20 | 0x200 | 0x400 | 0x1000 | 0x2000 | 0x8000 | 0x10000)
+local INTERNAS_RUINS = Mascara("EInternalObjectFlags", { "Unreachable", "Garbage", "PendingKill", "Async",
+    "AsyncLoading", "PendingConstruction" }, 0)
+
+local function Pronto(w)
+    local ok, ruim = pcall(function()
+        if w:HasAnyFlags(FLAGS_RUINS) then return true end
+        if INTERNAS_RUINS ~= 0 and w:HasAnyInternalFlags(INTERNAS_RUINS) then return true end
+        return false
+    end)
+    -- se o UE4SS nao tiver essas funcoes, segue com as outras protecoes
+    return not ok or not ruim
+end
+
+local function Carregando()
+    for _, nome in ipairs(TELAS_CARREGANDO) do
+        local ok, sim = pcall(function()
+            local t = FindFirstOf(nome)
+            return t ~= nil and t:IsValid() and t:IsInViewport()
+        end)
+        if ok and sim then return true end
+    end
+    return false
+end
+
 -- FindAllOf tambem traz os moldes (Default__ e os templates dentro do WidgetBlueprint, "..._C:WidgetTree.").
 -- Eles nao estao na tela, e mexer neles pode derrubar o jogo sem o pcall pegar.
 local function EhDeVerdade(w, endereco)
@@ -225,7 +270,7 @@ end
 
 -- w = widget vivo (veio do FindAllOf agora), rico = e RichTextBlock
 local function Processar(w, endereco, rico)
-    if not w:IsValid() or not EhDeVerdade(w, endereco) then return end
+    if not w:IsValid() or not Pronto(w) or not EhDeVerdade(w, endereco) then return end
     local txt = Texto(w)
     if txt == nil or txt == "" then return end
     local a = aplicados[endereco]
@@ -317,8 +362,18 @@ local function Liberar(ms)
 end
 
 local avisouVarrendo = false
+local avisouCarregando = false
 local function PodeVarrer()
     local agora = os.clock()
+    if Carregando() then
+        if not avisouCarregando then avisouCarregando = true; Log("tela de carregamento: pausado") end
+        return false
+    elseif avisouCarregando then
+        avisouCarregando = false
+        Log("tela de carregamento saiu")
+        Liberar(ESPERA_MAPA_MS)
+        return false
+    end
     if liberadoEm == nil and agora - inicio >= ESPERA_MAX_MS / 1000 then
         Log("o jogo nao avisou que o jogador entrou; comecando assim mesmo")
         liberadoEm = agora
@@ -398,8 +453,16 @@ end)
 if not okGancho then Log("sem gancho ClientRestart; espera " .. (ESPERA_MAX_MS / 1000) .. " s") end
 
 -- troca de mapa: para de varrer ate o mapa novo terminar de carregar
-pcall(RegisterLoadMapPreHook, function() liberadoEm = nil; inicio = os.clock() end)
-pcall(RegisterLoadMapPostHook, function() Liberar(ESPERA_MAPA_MS) end)
+local okMapa1 = pcall(RegisterLoadMapPreHook, function()
+    liberadoEm = nil
+    inicio = os.clock()
+    Log("carregando mapa: pausado")
+end)
+local okMapa2 = pcall(RegisterLoadMapPostHook, function()
+    Liberar(ESPERA_MAPA_MS)
+    Log("mapa carregado: volta em " .. (ESPERA_MAPA_MS / 1000) .. " s")
+end)
+if not (okMapa1 and okMapa2) then Log("sem gancho de troca de mapa") end
 
 -- o jogo trocou o texto de algum widget (hover, troca de aba...): so marca. Quem troca e o Conferir,
 -- no proximo ciclo rapido, pela lista viva. (O gancho nao guarda o widget nem cria funcao nova.)
