@@ -45,11 +45,12 @@ TEXTO QUE NAO CABE
 - Estilo > "Traducoes curtas onde o espaco e curto" (ligado): a IA tenta caber no espaco do original.
 
 ABREVIACOES (texto que nao cabe, com o nome inteiro na dica do mouse)
-Jogue com o tradutor aberto, depois Glossario > "Telas apertadas": aparecem as telas vistas (tela / texto).
-Marque as apertadas (ex.: linha de atributos, lista de talentos, lista de clas). No modo com chave a IA
-abrevia sozinha os textos delas: atributo vira sigla (Insight -> INS), nomes ficam mais curtos
-(Heluo Clan -> Heluo), rotulos viram forma curta (Allocate -> Alloc.). Nas telas nao marcadas (ex.: a dica do
-mouse) continua a traducao inteira. A abreviacao aparece na coluna "Abrev." e pode ser editada.
+Jeito rapido: jogue com o tradutor aberto passando pelas telas que estouram. No Glossario filtre (ex.: Atributo),
+aperte "Selecionar tudo" e depois "Abreviar e mostrar": a IA abrevia (modo com chave) e as listas onde esses
+termos aparecem ficam apertadas. A dica do mouse (um texto por vez) continua com o nome inteiro.
+Jeito manual: Glossario > "Telas apertadas" mostra cada tela pelos textos dela (antes -> depois); marque ou
+desmarque. Atributo vira sigla (Insight -> INS), nomes ficam mais curtos (Heluo Clan -> Heluo), rotulos viram
+forma curta (Allocate -> Alloc.). Para mudar uma abreviacao, edite a coluna "Abrev.".
 
 LINHA COM VARIOS TERMOS
 "伏羲脉 · 河洛氏 · 无根浮萍": cada parte e traduzida sozinha (pelo glossario) e a linha e montada de novo.

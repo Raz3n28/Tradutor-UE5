@@ -1203,11 +1203,9 @@ internal sealed class Janela : Form
         acoes.Controls.Add(btnUsarNova);
         acoes.Controls.Add(btnManter);
         acoes.Controls.Add(Tema.Botao(LiveTxt.T("glos_apagar_sel"), Tema.D(180), Tema.D(28), 3, delegate { ApagarSelecionados(); }));
-        acoes.Controls.Add(Tema.Botao(LiveTxt.T("abr_ia"), Tema.D(200), Tema.D(28), 0, delegate
-        {
-            Abreviador.Iniciar(Selecionados());
-            MostrarSelecionado();
-        }));
+        // lado a lado: seleciona a lista filtrada inteira e abrevia + mostra no jogo
+        acoes.Controls.Add(Tema.Botao(LiveTxt.T("abr_sel_tudo"), Tema.D(150), Tema.D(28), 0, delegate { grade.SelectAll(); }));
+        acoes.Controls.Add(Tema.Botao(LiveTxt.T("abr_mostrar"), Tema.D(190), Tema.D(28), 1, delegate { AbreviarEMostrar(); }));
         glosAbrStatus = Tema.Rotulo("", larguraDet, Tema.Fraco, 8.5f);
         acoes.Controls.Add(glosAbrStatus);
         det.Controls.Add(acoes);
@@ -1432,32 +1430,47 @@ internal sealed class Janela : Form
         return l;
     }
 
-    // telas (lugares) onde o termo apareceu nesta sessao + a primeira guardada no glossario.
-    // Marcada = tela apertada: ali vai a abreviacao de TODOS os termos que tem uma.
+    // linha curta no painel de baixo: em quantas telas o termo apareceu e quantas estao apertadas
+    // (marcar/desmarcar fica so na janela "Telas apertadas")
     private void MostrarTelas(TermoGlossario t)
     {
         glosTelas.SuspendLayout();
         glosTelas.Controls.Clear();
         if (t != null)
         {
-            List<string> ls = new List<string>(Ponte.Lugares(t.Original));
-            if (!string.IsNullOrEmpty(t.Onde) && !ls.Contains(t.Onde)) ls.Add(t.Onde);
-            Label tit = Tema.Rotulo(LiveTxt.T(ls.Count > 0 ? "abr_telas" : "abr_sem_telas"), larguraDet, Tema.Fraco, 8.5f);
-            glosTelas.Controls.Add(tit);
-            glosTelas.SetFlowBreak(tit, true);
-            for (int i = 0; i < ls.Count; i++)
-            {
-                string lugar = ls[i];
-                CheckBox cb = Tema.Marca(lugar, LiveConfig.TelasCurtas.Contains(lugar), larguraDet);
-                cb.Margin = new Padding(0, Tema.D(2), Tema.D(14), Tema.D(2));
-                cb.CheckedChanged += delegate { Ponte.MarcarTela(lugar, cb.Checked); };
-                glosTelas.Controls.Add(cb);
-            }
+            List<string> ls = Ponte.Lugares(t.Original);
+            int apertadas = 0;
+            for (int i = 0; i < ls.Count; i++) if (LiveConfig.TelasCurtas.Contains(ls[i])) apertadas++;
+            string txt = ls.Count == 0 ? LiveTxt.T("abr_sem_telas") : LiveTxt.F("abr_resumo", ls.Count, apertadas);
+            glosTelas.Controls.Add(Tema.Rotulo(txt, larguraDet, apertadas > 0 ? Tema.Destaque : Tema.Fraco, 8.5f));
         }
         glosTelas.ResumeLayout();
     }
 
-    // todas as telas (lugares) vistas nesta sessao: marcar = apertada (a IA abrevia os textos dela)
+    // botao "Abreviar e mostrar": a IA abrevia os selecionados (os que ainda nao tem) e as telas onde eles
+    // aparecem em lista (2+ textos juntos) ficam apertadas. Dica do mouse e titulos (1 texto por vez) ficam inteiros.
+    private void AbreviarEMostrar()
+    {
+        List<TermoGlossario> sel = Selecionados();
+        if (sel.Count == 0) return;
+        Abreviador.Iniciar(sel);
+        int marcadas = 0;
+        for (int i = 0; i < sel.Count; i++)
+        {
+            List<string> ls = Ponte.Lugares(sel[i].Original);
+            for (int k = 0; k < ls.Count; k++)
+            {
+                if (LiveConfig.TelasCurtas.Contains(ls[k]) || Ponte.Vezes(ls[k]) < 2) continue;
+                Ponte.MarcarTela(ls[k], true);
+                marcadas++;
+            }
+        }
+        if (marcadas == 0) Ponte.Reenviar = true;
+        if (!Abreviador.Rodando && Abreviador.Status.Length == 0) Abreviador.Status = LiveTxt.F("abr_marcadas", marcadas);
+        MostrarSelecionado();
+    }
+
+    // todas as telas vistas nesta sessao: marcar = apertada (a IA abrevia os textos dela e ali vai a versao curta)
     private void Telas()
     {
         using (Form d = new Form())
@@ -1465,43 +1478,55 @@ internal sealed class Janela : Form
             d.Text = LiveTxt.T("abr_telas_bt");
             d.FormBorderStyle = FormBorderStyle.Sizable;
             d.StartPosition = FormStartPosition.CenterParent;
-            d.ClientSize = new Size(Tema.D(640), Tema.D(520));
+            d.ClientSize = new Size(Tema.D(700), Tema.D(560));
             d.MinimizeBox = false;
             d.BackColor = Tema.Cartao;
             d.ForeColor = Tema.Texto;
             d.Font = Tema.F(9f);
-            int w = Tema.D(580);
+            int w = Tema.D(640);
             FlowLayoutPanel f = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(Tema.D(16)) };
             d.Controls.Add(f);
-            f.Controls.Add(Tema.Rotulo(LiveTxt.T("abr_telas_dica"), w, Tema.Fraco, 8.5f));
+            f.Controls.Add(Tema.Rotulo(LiveTxt.T("abr_guia"), w, Tema.Texto, 9f));
             List<string> ls = Ponte.TodosLugares();
-            // marcadas primeiro, depois as com mais textos
+            // marcadas primeiro, depois as listas, depois as com mais textos
             ls.Sort(delegate (string a, string b)
             {
                 bool ma = LiveConfig.TelasCurtas.Contains(a), mb = LiveConfig.TelasCurtas.Contains(b);
                 if (ma != mb) return ma ? -1 : 1;
+                bool la = Ponte.Vezes(a) >= 2, lb2 = Ponte.Vezes(b) >= 2;
+                if (la != lb2) return la ? -1 : 1;
                 int c = Ponte.TextosDe(b).Count.CompareTo(Ponte.TextosDe(a).Count);
                 return c != 0 ? c : string.CompareOrdinal(a, b);
             });
             foreach (string l in LiveConfig.TelasCurtas) if (!ls.Contains(l)) ls.Add(l);
+            List<CheckBox> caixas = new List<CheckBox>();
+            FlowLayoutPanel bts = Tema.Linha(w);
+            bts.Controls.Add(Tema.Botao(LiveTxt.T("abr_marcar_todas"), Tema.D(170), Tema.D(28), 0, delegate { foreach (CheckBox c in caixas) c.Checked = true; }));
+            bts.Controls.Add(Tema.Botao(LiveTxt.T("abr_desmarcar_todas"), Tema.D(170), Tema.D(28), 0, delegate { foreach (CheckBox c in caixas) c.Checked = false; }));
+            f.Controls.Add(bts);
             if (ls.Count == 0) f.Controls.Add(Tema.Rotulo(LiveTxt.T("abr_sem_telas"), w, Tema.Aviso, 9f));
             for (int i = 0; i < ls.Count; i++)
             {
                 string lugar = ls[i];
                 List<string> textos = Ponte.TextosDe(lugar);
-                CheckBox cb = Tema.Marca(lugar + "   (" + textos.Count + ")", LiveConfig.TelasCurtas.Contains(lugar), w);
-                cb.Font = Tema.F(9f, true);
-                cb.Margin = new Padding(0, Tema.D(8), 0, 0);
-                cb.CheckedChanged += delegate { Ponte.MarcarTela(lugar, cb.Checked); };
-                f.Controls.Add(cb);
+                // nome da tela = o que tem nela, com o antes -> depois
                 List<string> ex = new List<string>();
-                for (int k = 0; k < textos.Count && ex.Count < 6; k++) ex.Add(Ponte.Traducao(textos[k]) ?? textos[k]);
-                if (ex.Count > 0)
+                for (int k = 0; k < textos.Count && ex.Count < 4; k++)
                 {
-                    Label lb = Tema.Rotulo(string.Join("  ·  ", ex), w, Tema.Fraco, 8.5f);
-                    lb.Margin = new Padding(Tema.D(20), 0, 0, 0);
-                    f.Controls.Add(lb);
+                    string tr = Ponte.Traducao(textos[k]) ?? textos[k];
+                    TermoGlossario g = Glossario.Obter(textos[k]);
+                    ex.Add(g != null && !string.IsNullOrEmpty(g.Curta) ? tr + " → " + g.Curta : tr);
                 }
+                string nome = ex.Count > 0 ? string.Join("  ·  ", ex) + (textos.Count > ex.Count ? "  …" : "") : lugar;
+                CheckBox cb = Tema.Marca(nome, LiveConfig.TelasCurtas.Contains(lugar), w);
+                cb.Margin = new Padding(0, Tema.D(10), 0, 0);
+                cb.CheckedChanged += delegate { Ponte.MarcarTela(lugar, cb.Checked); };
+                caixas.Add(cb);
+                f.Controls.Add(cb);
+                string tipo = Ponte.Vezes(lugar) >= 2 ? LiveTxt.T("abr_tipo_lista") : LiveTxt.T("abr_tipo_um");
+                Label lb = Tema.Rotulo(tipo + "  ·  " + LiveTxt.F("abr_n_textos", textos.Count) + "  ·  " + lugar, w, Tema.Fraco, 7.5f);
+                lb.Margin = new Padding(Tema.D(20), 0, 0, 0);
+                f.Controls.Add(lb);
             }
             d.ShowDialog(this);
         }

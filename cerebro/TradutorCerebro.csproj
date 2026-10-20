@@ -16,7 +16,7 @@
     <SelfContained>false</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
     <DebugType>none</DebugType>
-    <Version>0.4.4</Version>
+    <Version>0.4.5</Version>
   </PropertyGroup>
 
 </Project>

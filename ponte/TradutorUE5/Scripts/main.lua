@@ -4,8 +4,11 @@
 --
 -- Conversa com o cerebro por dois arquivos na pasta "troca" (ver cerebro/Ponte.cs):
 --   pedidos.txt   (ponte -> cerebro)  T<TAB>texto<TAB>pista | L<TAB>texto<TAB>lugar | M (menu) | I (jogo abriu)
+--                                     Q<TAB>lugar<TAB>n (o lugar ja mostrou n textos ao mesmo tempo: lista)
 --   respostas.txt (cerebro -> ponte)  R<TAB>texto<TAB>traducao | N<TAB>texto | X (devolver originais)
---                                     C<TAB>lugar<TAB>texto<TAB>abreviacao
+--                                     C<TAB>lugar<TAB>texto<TAB>abreviacao | K (esquecer as abreviacoes)
+-- Abreviacoes mudaram: o cerebro manda K + todas as C de novo, e a ponte troca so os textos afetados
+-- (sem devolver os originais nem pedir tudo de novo).
 -- lugar = tela / nome do texto (ex.: "attritem / txt_name"). Nos lugares que o jogador marcou como apertados
 -- o cerebro manda a abreviacao (C) e ela vai no lugar da traducao inteira; nos outros (ex.: a dica do mouse)
 -- fica a traducao inteira.
@@ -78,6 +81,8 @@ local nossas = {}     -- traducao -> original (texto que a ponte colocou na tela
 local aplicados = {}  -- endereco do widget -> { o = original, t = traducao }
 local curtas = {}     -- lugar -> { original -> abreviacao }
 local avisados = {}   -- lugar .. "\1" .. original -> true (cerebro ja sabe que o texto aparece ali)
+local nesta = {}      -- lugar -> quantos textos dele nesta passada
+local maximo = {}     -- lugar -> maior quantidade ja avisada ao cerebro
 local devolver = false   -- o cerebro mandou devolver os originais (feito no proximo ciclo, na lista viva)
 local saida = {}      -- linhas para pedidos.txt
 local lidoResp = 0
@@ -132,6 +137,8 @@ local function Linha(l)
             curtas[lugar][o] = c
             nossas[c] = o
         end
+    elseif tipo == "K" then
+        curtas = {}
     elseif tipo == "X" then
         devolver = true
     end
@@ -186,6 +193,8 @@ local function Lugar(nome)
             for _, pre in ipairs(PREFIXOS) do
                 if d:sub(1, #pre) == pre then d = d:sub(#pre + 1); break end
             end
+            -- bs_secondtitle1 e bs_secondtitle2 sao a mesma tela repetida: fica "bs_secondtitle"
+            d = d:gsub("%d+$", "")
             dono = d
             break
         end
@@ -234,9 +243,19 @@ local function Processar(w, endereco)
     if not lugar then return end
     local txt = Texto(w)
     if txt == nil or txt == "" then return end
+    if lugar ~= "" then nesta[lugar] = (nesta[lugar] or 0) + 1 end
     local o = nossas[txt]
     if o then
         Avisar(o, lugar)
+        -- texto ja e nosso: confere se este lugar quer a abreviacao ou a traducao inteira
+        local t = trad[o]
+        if t then
+            local c = curtas[lugar] and curtas[lugar][o]
+            local quer = c or t
+            if txt ~= quer and pcall(function() w:SetText(FText(quer)) end) then
+                aplicados[endereco] = { o = o, t = quer }
+            end
+        end
         return
     end
     local t = trad[txt]
@@ -261,6 +280,7 @@ end
 
 -- passa por todos os textos vivos
 local function Passar()
+    nesta = {}
     for _, cls in ipairs(CLASSES) do
         local lista = FindAllOf(cls)
         if lista then
@@ -271,6 +291,13 @@ local function Passar()
                     if not ok then Log("erro num texto: " .. tostring(erro)) end
                 end
             end
+        end
+    end
+    -- lugar que mostra varios textos juntos e lista (atributos, clas...); a dica do mouse mostra um so
+    for lugar, n in pairs(nesta) do
+        if n > (maximo[lugar] or 0) and (maximo[lugar] or 0) < 50 then
+            maximo[lugar] = n
+            Enviar("Q\t" .. Escapar(lugar) .. "\t" .. n)
         end
     end
 end

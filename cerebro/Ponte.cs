@@ -5,6 +5,7 @@ using System.Text;
 
 // Conversa com a ponte (mod Lua do UE4SS) por dois arquivos na pasta "troca":
 //   pedidos.txt   (ponte -> cerebro)  T<TAB>texto<TAB>pista | L<TAB>texto<TAB>lugar (onde o texto aparece)
+//                                     Q<TAB>lugar<TAB>n (o lugar mostrou n textos ao mesmo tempo)
 //                                     M (abrir/fechar menu) | I (jogo abriu)
 //   respostas.txt (cerebro -> ponte)  R<TAB>texto<TAB>traducao | N<TAB>texto (nao traduzir) | X (devolver originais)
 //                                     C<TAB>lugar<TAB>texto<TAB>abreviacao (vai antes do R)
@@ -42,8 +43,33 @@ internal static class Ponte
     // lugar -> textos vistos nele (para a lista de telas e para abreviar a tela inteira)
     private static readonly Dictionary<string, List<string>> porLugar = new Dictionary<string, List<string>>();
     private const int MaxPorLugar = 300;
-    // ultima traducao mandada para cada texto (para abreviar textos que nao sao do glossario)
+    // ultima traducao mandada para cada texto, sem as marcas de cor (para abreviar textos que nao sao do glossario)
     private static readonly Dictionary<string, string> respondidos = new Dictionary<string, string>();
+    // textos (como vieram, com marcas) que ja tem traducao: para mandar as abreviacoes de novo
+    private static readonly HashSet<string> brutos = new HashSet<string>();
+
+    // Texto inteiro dentro de marcas de cor ("<Quality5>孤星推命</>"): devolve o miolo ("孤星推命") e as marcas.
+    // Sem marcas: o proprio texto. O glossario e as abreviacoes trabalham com o miolo; a tela recebe as marcas de volta.
+    private static readonly System.Text.RegularExpressions.Regex rxMiolo =
+        new System.Text.RegularExpressions.Regex("^((?:<[^<>/][^<>]*>)*)([^<>]+)((?:</[^<>]*>)*)$");
+
+    public static string Miolo(string s, out string antes, out string depois)
+    {
+        antes = "";
+        depois = "";
+        if (string.IsNullOrEmpty(s) || s.IndexOf('<') < 0) return s;
+        System.Text.RegularExpressions.Match m = rxMiolo.Match(s);
+        if (!m.Success) return s;
+        antes = m.Groups[1].Value;
+        depois = m.Groups[3].Value;
+        return m.Groups[2].Value;
+    }
+
+    public static string Miolo(string s)
+    {
+        string a, d;
+        return Miolo(s, out a, out d);
+    }
 
     public static string Traducao(string texto)
     {
@@ -55,6 +81,15 @@ internal static class Ponte
     {
         List<string> l;
         return lugar != null && porLugar.TryGetValue(lugar, out l) ? l : new List<string>();
+    }
+
+    // quantos textos o lugar ja mostrou ao mesmo tempo (2 ou mais = lista; 1 = dica do mouse, titulo...)
+    private static readonly Dictionary<string, int> vezes = new Dictionary<string, int>();
+
+    public static int Vezes(string lugar)
+    {
+        int n;
+        return lugar != null && vezes.TryGetValue(lugar, out n) ? n : 0;
     }
 
     public static List<string> TodosLugares()
@@ -72,7 +107,7 @@ internal static class Ponte
         if (apertada) Abreviador.Tela(lugar);
     }
 
-    // abreviacao ou tela apertada mudou: a ponte devolve os originais e pede tudo de novo (com as abreviacoes)
+    // abreviacao ou tela apertada mudou: manda K + todas as abreviacoes de novo (a ponte troca so o que mudou)
     public static bool Reenviar;
 
     public static List<string> Lugares(string texto)
@@ -117,7 +152,8 @@ internal static class Ponte
         if (Reenviar)
         {
             Reenviar = false;
-            saida.Append("X\n");
+            saida.Append("K\n");
+            foreach (string b in brutos) Curtas(b);
         }
         if (LiveMotor.VarrerAgora)
         {
@@ -191,6 +227,12 @@ internal static class Ponte
                 if (p.Length < 3) return;
                 Lugar(Desescapar(p[1]), Desescapar(p[2]));
                 break;
+            case "Q":
+                int q;
+                if (p.Length < 3 || !int.TryParse(p[2], out q)) return;
+                string lq = Desescapar(p[1]);
+                if (q > Vezes(lq)) vezes[lq] = q;
+                break;
             case "M":
                 if (MenuPedido != null) MenuPedido();
                 break;
@@ -203,6 +245,7 @@ internal static class Ponte
     private static void Lugar(string texto, string lugar)
     {
         if (lugar.Length == 0) return;
+        texto = Miolo(texto);
         List<string> l;
         if (!lugares.TryGetValue(texto, out l))
         {
@@ -226,10 +269,13 @@ internal static class Ponte
     private static void Curtas(string texto)
     {
         if (LiveConfig.TelasCurtas.Count == 0) return;
-        TermoGlossario g = Glossario.Obter(texto.Trim());
+        string antes, depois;
+        string m = Miolo(texto, out antes, out depois);
+        TermoGlossario g = Glossario.Obter(m.Trim());
         if (g == null || string.IsNullOrEmpty(g.Curta)) return;
+        string c = antes + g.Curta + depois;
         foreach (string lugar in LiveConfig.TelasCurtas)
-            saida.Append("C\t").Append(Escapar(lugar)).Append('\t').Append(Escapar(texto)).Append('\t').Append(Escapar(g.Curta)).Append('\n');
+            saida.Append("C\t").Append(Escapar(lugar)).Append('\t').Append(Escapar(texto)).Append('\t').Append(Escapar(c)).Append('\n');
     }
 
     private static void NovaSessao()
@@ -250,8 +296,9 @@ internal static class Ponte
         {
             esperando.Remove(texto);
             Curtas(texto);
-            if (respondidos.Count > 20000) respondidos.Clear();
-            respondidos[texto] = r;
+            if (respondidos.Count > 20000) { respondidos.Clear(); brutos.Clear(); }
+            respondidos[Miolo(texto)] = Miolo(r);
+            brutos.Add(texto);
             saida.Append("R\t").Append(Escapar(texto)).Append('\t').Append(Escapar(r)).Append('\n');
             Enviados++;
         }
