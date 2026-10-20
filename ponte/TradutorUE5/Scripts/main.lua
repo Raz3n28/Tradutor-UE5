@@ -61,6 +61,9 @@ local nossas = {}     -- traducao -> original (texto que a ponte colocou na tela
 local aplicados = {}  -- endereco do widget -> { w = widget, o = original } (para devolver os originais)
 local saida = {}      -- linhas para pedidos.txt
 local lidoResp = 0
+local naTela = {}     -- endereco do widget -> true (widget de verdade) | false (molde: Default__ ou template)
+local proxLimpeza = 0
+local primeiraTroca = true
 
 local function Enviar(linha)
     saida[#saida + 1] = linha .. "\n"
@@ -133,8 +136,22 @@ local function Pista(w)
     return ok and nome or ""
 end
 
+-- FindAllOf tambem traz os moldes (Default__ e os templates dentro do WidgetBlueprint, "..._C:WidgetTree.").
+-- Eles nao estao na tela, e mexer neles pode derrubar o jogo sem o pcall pegar.
+local function EhDeVerdade(w)
+    local okEnd, endereco = pcall(function() return w:GetAddress() end)
+    if not okEnd or not endereco then return false end
+    local r = naTela[endereco]
+    if r ~= nil then return r end
+    local nome = Pista(w)
+    r = nome ~= "" and not nome:find("Default__", 1, true) and not nome:find("_C:WidgetTree", 1, true)
+    naTela[endereco] = r
+    return r
+end
+
 local function Processar(w)
     if not w:IsValid() then return end
+    if not EhDeVerdade(w) then return end
     local ok, txt = pcall(function() return w.Text:ToString() end)
     if not ok or txt == nil or txt == "" then return end
     if nossas[txt] then return end
@@ -145,7 +162,12 @@ local function Processar(w)
             Enviar("T\t" .. Escapar(txt) .. "\t" .. Escapar(Pista(w)))
         end
     elseif t ~= false then
+        if primeiraTroca then Log("primeira troca de texto: " .. Pista(w)) end
         local okSet = pcall(function() w:SetText(FText(t)) end)
+        if primeiraTroca then
+            primeiraTroca = false
+            Log("primeira troca " .. (okSet and "ok" or "falhou"))
+        end
         if okSet then
             local okEnd, endereco = pcall(function() return w:GetAddress() end)
             if okEnd and endereco then aplicados[endereco] = { w = w, o = txt } end
@@ -154,6 +176,12 @@ local function Processar(w)
 end
 
 local function Varrer()
+    -- enderecos sao reaproveitados quando o jogo apaga widgets: esquece a lista de vez em quando
+    local agora = os.clock()
+    if agora >= proxLimpeza then
+        naTela = {}
+        proxLimpeza = agora + 30
+    end
     for _, cls in ipairs(CLASSES) do
         local lista = FindAllOf(cls)
         if lista then
