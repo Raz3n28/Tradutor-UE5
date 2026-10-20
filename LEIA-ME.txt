@@ -44,6 +44,12 @@ GLOSSARIO INTELIGENTE (modo com chave)
 TEXTO QUE NAO CABE
 - Estilo > "Traducoes curtas onde o espaco e curto" (ligado): a IA tenta caber no espaco do original.
 
+ABREVIACOES (atributos que nao cabem)
+Na aba Glossario ha a coluna "Abrev.": escreva a abreviacao (ex.: Ataque -> ATQ) ou selecione os termos e
+aperte "Abreviar com IA". Embaixo da tabela aparecem as telas onde o termo foi visto (jogue com o tradutor
+aberto). Marque so as telas apertadas (ex.: a linha de atributos): nelas vai a abreviacao de todos os termos
+que tem uma; nas outras (ex.: a dica do mouse) continua a traducao inteira.
+
 LINHA COM VARIOS TERMOS
 "伏羲脉 · 河洛氏 · 无根浮萍": cada parte e traduzida sozinha (pelo glossario) e a linha e montada de novo.
 

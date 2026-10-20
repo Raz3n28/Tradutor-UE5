@@ -4,8 +4,12 @@ using System.IO;
 using System.Text;
 
 // Conversa com a ponte (mod Lua do UE4SS) por dois arquivos na pasta "troca":
-//   pedidos.txt   (ponte -> cerebro)  T<TAB>texto<TAB>pista | M (abrir/fechar menu) | I (jogo abriu)
+//   pedidos.txt   (ponte -> cerebro)  T<TAB>texto<TAB>pista | L<TAB>texto<TAB>lugar (onde o texto aparece)
+//                                     M (abrir/fechar menu) | I (jogo abriu)
 //   respostas.txt (cerebro -> ponte)  R<TAB>texto<TAB>traducao | N<TAB>texto (nao traduzir) | X (devolver originais)
+//                                     C<TAB>lugar<TAB>texto<TAB>abreviacao (vai antes do R)
+// Lugar = Glossario.Onde da pista ("attritem / txt_name"). Nos lugares de LiveConfig.TelasCurtas a ponte usa
+// a abreviacao do termo (TermoGlossario.Curta) no lugar da traducao inteira.
 // Cada lado so acrescenta linhas no fim e lembra ate onde ja leu. A ponte zera os dois quando o jogo abre.
 // Texto com \ TAB ou quebra de linha vai escapado (\\ \t \n \r), igual ao cache.
 internal static class Ponte
@@ -32,6 +36,18 @@ internal static class Ponte
     // textos que a ponte pediu e ainda nao tiveram resposta: texto -> pista
     private static readonly Dictionary<string, string> esperando = new Dictionary<string, string>();
     private static bool ativoAntes;
+    // lugares onde cada texto apareceu nesta sessao (para o menu oferecer as telas): texto -> lugares
+    private static readonly Dictionary<string, List<string>> lugares = new Dictionary<string, List<string>>();
+    private const int MaxLugares = 12;
+
+    // abreviacao ou tela apertada mudou: a ponte devolve os originais e pede tudo de novo (com as abreviacoes)
+    public static bool Reenviar;
+
+    public static List<string> Lugares(string texto)
+    {
+        List<string> l;
+        return texto != null && lugares.TryGetValue(texto, out l) ? l : new List<string>();
+    }
 
     public static int Esperando { get { return esperando.Count; } }
     public static int Recebidos;
@@ -63,6 +79,11 @@ internal static class Ponte
         if (LiveMotor.AtualizarPendente)
         {
             LiveMotor.FimAtualizar();
+            saida.Append("X\n");
+        }
+        if (Reenviar)
+        {
+            Reenviar = false;
             saida.Append("X\n");
         }
         if (LiveMotor.VarrerAgora)
@@ -133,6 +154,10 @@ internal static class Ponte
                 Recebidos++;
                 Responder(Desescapar(p[1]), p.Length > 2 ? Desescapar(p[2]) : "");
                 break;
+            case "L":
+                if (p.Length < 3) return;
+                Lugar(Desescapar(p[1]), Desescapar(p[2]));
+                break;
             case "M":
                 if (MenuPedido != null) MenuPedido();
                 break;
@@ -140,6 +165,29 @@ internal static class Ponte
                 NovaSessao();
                 break;
         }
+    }
+
+    private static void Lugar(string texto, string lugar)
+    {
+        if (lugar.Length == 0) return;
+        List<string> l;
+        if (!lugares.TryGetValue(texto, out l))
+        {
+            if (lugares.Count >= MaxEsperando) return;
+            l = new List<string>();
+            lugares[texto] = l;
+        }
+        if (l.Count < MaxLugares && !l.Contains(lugar)) l.Add(lugar);
+    }
+
+    // abreviacoes do texto para as telas apertadas
+    private static void Curtas(string texto)
+    {
+        if (LiveConfig.TelasCurtas.Count == 0) return;
+        TermoGlossario g = Glossario.Obter(texto.Trim());
+        if (g == null || string.IsNullOrEmpty(g.Curta)) return;
+        foreach (string lugar in LiveConfig.TelasCurtas)
+            saida.Append("C\t").Append(Escapar(lugar)).Append('\t').Append(Escapar(texto)).Append('\t').Append(Escapar(g.Curta)).Append('\n');
     }
 
     private static void NovaSessao()
@@ -159,6 +207,7 @@ internal static class Ponte
         if (r != null)
         {
             esperando.Remove(texto);
+            Curtas(texto);
             saida.Append("R\t").Append(Escapar(texto)).Append('\t').Append(Escapar(r)).Append('\n');
             Enviados++;
         }

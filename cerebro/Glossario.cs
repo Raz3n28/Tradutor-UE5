@@ -16,6 +16,8 @@ internal sealed class TermoGlossario
     // frase do jogo onde o termo apareceu (para revisar com seguranca) e a tela (widget) onde foi visto
     public string Exemplo = "";
     public string Onde = "";
+    // abreviacao para as telas apertadas (LiveConfig.TelasCurtas). "" = sem abreviacao
+    public string Curta = "";
 
     public bool Confirmado { get { return Vistos >= Glossario.VistosConfirmar; } }
     public bool Conflito { get { return !string.IsNullOrEmpty(Alternativa); } }
@@ -24,7 +26,7 @@ internal sealed class TermoGlossario
 // Glossario: termos curtos (nomes, lugares, seitas, reinos, tecnicas, pilulas, artefatos, itens, menus...).
 // O que estiver aqui vale ANTES do cache e da IA. O jogador pode trocar a traducao, a categoria e travar o termo.
 // Um arquivo por idioma de destino: glossario_<idioma>.txt
-//   #v<TAB>2  e  original<TAB>traducao<TAB>categoria<TAB>travado<TAB>vistos<TAB>alternativa<TAB>exemplo<TAB>onde
+//   #v<TAB>2  e  original<TAB>traducao<TAB>categoria<TAB>travado<TAB>vistos<TAB>alternativa<TAB>exemplo<TAB>onde<TAB>curta
 // (arquivo sem "#v 2" e do ModLive: so as 4 primeiras colunas e as categorias antigas, ver Categorias.Migrar)
 //
 // Niveis: novo (a IA traduziu uma vez) -> confirmado (a IA repetiu a mesma traducao 3 vezes) -> travado (jogador).
@@ -105,13 +107,14 @@ internal static class Glossario
         if (p.Length > 5) t.Alternativa = Desescapar(p[5]);
         if (p.Length > 6) t.Exemplo = Desescapar(p[6]);
         if (p.Length > 7) t.Onde = Desescapar(p[7]);
+        if (p.Length > 8) t.Curta = Desescapar(p[8]);
         return t;
     }
 
     private static string Linha(TermoGlossario t)
     {
         return Escapar(t.Original) + "\t" + Escapar(t.Traducao) + "\t" + t.Cat + "\t" + (t.Travado ? "1" : "0")
-            + "\t" + t.Vistos + "\t" + Escapar(t.Alternativa ?? "") + "\t" + Escapar(t.Exemplo ?? "") + "\t" + Escapar(t.Onde ?? "");
+            + "\t" + t.Vistos + "\t" + Escapar(t.Alternativa ?? "") + "\t" + Escapar(t.Exemplo ?? "") + "\t" + Escapar(t.Onde ?? "") + "\t" + Escapar(t.Curta ?? "");
     }
 
     private static void Criar(TermoGlossario novo)
@@ -121,6 +124,7 @@ internal static class Glossario
         t.Alternativa = novo.Alternativa ?? "";
         t.Exemplo = novo.Exemplo ?? "";
         t.Onde = novo.Onde ?? "";
+        t.Curta = novo.Curta ?? "";
     }
 
     public static TermoGlossario Obter(string original)

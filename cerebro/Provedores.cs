@@ -97,6 +97,19 @@ internal static class Provedores
         return MontarIA(p, sb.ToString(), Json.ListaTextos(termos), Mathf.Clamp(256 + termos.Count * 12, 512, 4096));
     }
 
+    // abreviacoes curtas (botao "Abreviar com IA" do glossario). Cada item: "original || traducao"
+    public static Pedido MontarAbreviar(Provedor p, List<string> termos)
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.Append("You write short abbreviations for UI labels (stats, attributes, buttons) of " + LiveConfig.Jogo + ", in ").Append(LiveConfig.NomeIdiomaIngles()).Append(". ");
+        sb.Append("The labels must fit a very narrow space in the game screen. ");
+        sb.Append("The user sends a JSON array; each item is \"original || translation\". ");
+        sb.Append("For each item abbreviate the TRANSLATION, the way games in ").Append(LiveConfig.NomeIdiomaIngles()).Append(" usually do (e.g. Attack -> ATK, Defense -> DEF, Critical Rate -> Crit Rate). ");
+        sb.Append("Keep it recognizable, at most about 8 characters; if the translation is already that short, repeat it unchanged. ");
+        sb.Append("Reply with ONLY a JSON array of strings, with exactly the same number of items and the same order as the input.");
+        return MontarIA(p, sb.ToString(), Json.ListaTextos(termos), Mathf.Clamp(256 + termos.Count * 16, 512, 4096));
+    }
+
     // lista de categorias da resposta (null se o formato ou a quantidade nao bater)
     public static List<string> InterpretarLista(Provedor p, string corpo, int esperado)
     {

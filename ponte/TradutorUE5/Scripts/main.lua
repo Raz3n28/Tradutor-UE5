@@ -3,8 +3,12 @@
 -- (TradutorCerebro.exe) e troca pela traducao quando ela chega. F8 abre/fecha o menu do cerebro.
 --
 -- Conversa com o cerebro por dois arquivos na pasta "troca" (ver cerebro/Ponte.cs):
---   pedidos.txt   (ponte -> cerebro)  T<TAB>texto<TAB>pista | M (menu) | I (jogo abriu)
+--   pedidos.txt   (ponte -> cerebro)  T<TAB>texto<TAB>pista | L<TAB>texto<TAB>lugar | M (menu) | I (jogo abriu)
 --   respostas.txt (cerebro -> ponte)  R<TAB>texto<TAB>traducao | N<TAB>texto | X (devolver originais)
+--                                     C<TAB>lugar<TAB>texto<TAB>abreviacao
+-- lugar = tela / nome do texto (ex.: "attritem / txt_name"). Nos lugares que o jogador marcou como apertados
+-- o cerebro manda a abreviacao (C) e ela vai no lugar da traducao inteira; nos outros (ex.: a dica do mouse)
+-- fica a traducao inteira.
 
 ---------------- ajustes ----------------
 local INTERVALO_MS = 500          -- de quanto em quanto tempo olha a tela
@@ -72,10 +76,12 @@ local trad = {}       -- original -> traducao (false = o cerebro disse para nao 
 local pedidos = {}    -- original -> true (ja mandado, esperando)
 local nossas = {}     -- traducao -> original (texto que a ponte colocou na tela)
 local aplicados = {}  -- endereco do widget -> { o = original, t = traducao }
+local curtas = {}     -- lugar -> { original -> abreviacao }
+local avisados = {}   -- lugar .. "\1" .. original -> true (cerebro ja sabe que o texto aparece ali)
 local devolver = false   -- o cerebro mandou devolver os originais (feito no proximo ciclo, na lista viva)
 local saida = {}      -- linhas para pedidos.txt
 local lidoResp = 0
-local naTela = {}     -- endereco do widget -> true (widget de verdade) | false (molde: Default__ ou template)
+local naTela = {}     -- endereco do widget -> lugar (widget de verdade) | false (molde: Default__ ou template)
 local proxLimpeza = 0
 local primeiraTroca = true
 local liberadoEm = nil   -- os.clock() a partir do qual pode varrer (nil = ainda nao)
@@ -117,6 +123,15 @@ local function Linha(l)
         local o = Desescapar(a)
         trad[o] = false
         pedidos[o] = nil
+    elseif tipo == "C" then
+        local lugar, o, c = l:match("^C\t([^\t]*)\t([^\t]*)\t(.*)$")
+        if lugar and c ~= "" then
+            o, c = Desescapar(o), Desescapar(c)
+            lugar = Desescapar(lugar)
+            curtas[lugar] = curtas[lugar] or {}
+            curtas[lugar][o] = c
+            nossas[c] = o
+        end
     elseif tipo == "X" then
         devolver = true
     end
@@ -152,14 +167,46 @@ local function DaTelaDeCarregamento(pista)
     return false
 end
 
+-- lugar do texto, tirado do nome completo (igual ao "Onde" do cerebro, Glossario.PartesPista):
+-- "...wbp_attritem_c_3.widgettree.txt_name" -> "attritem / txt_name"
+local PREFIXOS = { "wbp_", "wb_", "w_", "ui_", "umg_", "bp_" }
+local function Lugar(nome)
+    local p = nome:lower()
+    local esp = p:find(" ", 1, true)
+    if esp then p = p:sub(esp + 1) end
+    local seg = {}
+    for s in p:gmatch("[^%.:/]+") do seg[#seg + 1] = s end
+    if #seg == 0 then return "" end
+    local widget = seg[#seg]
+    if widget == "widgettree" or widget:sub(-2) == "_c" then widget = "" end
+    local dono = ""
+    for i = #seg, 1, -1 do
+        local d = seg[i]:match("^(.+)_c_%d+$") or seg[i]:match("^(.+)_c$")
+        if d then
+            for _, pre in ipairs(PREFIXOS) do
+                if d:sub(1, #pre) == pre then d = d:sub(#pre + 1); break end
+            end
+            dono = d
+            break
+        end
+    end
+    if dono == "" then return widget end
+    if widget == "" then return dono end
+    return dono .. " / " .. widget
+end
+
 -- FindAllOf tambem traz os moldes (Default__ e os templates dentro do WidgetBlueprint, "..._C:WidgetTree.").
 -- Eles nao estao na tela, e mexer neles pode derrubar o jogo sem o pcall pegar.
 local function EhDeVerdade(w, endereco)
     local r = naTela[endereco]
     if r ~= nil then return r end
     local nome = Pista(w)
-    r = nome ~= "" and not nome:find("Default__", 1, true) and not nome:find("_C:WidgetTree", 1, true)
-        and not DaTelaDeCarregamento(nome)
+    if nome ~= "" and not nome:find("Default__", 1, true) and not nome:find("_C:WidgetTree", 1, true)
+        and not DaTelaDeCarregamento(nome) then
+        r = Lugar(nome)
+    else
+        r = false
+    end
     naTela[endereco] = r
     return r
 end
@@ -170,12 +217,28 @@ local function Texto(w)
     return nil
 end
 
+-- conta ao cerebro em que lugares cada texto curto aparece (uma vez por lugar): e assim que o menu
+-- mostra as telas onde da para usar a abreviacao
+local function Avisar(o, lugar)
+    if lugar == "" or #o > 48 then return end
+    local k = lugar .. "\1" .. o
+    if avisados[k] then return end
+    avisados[k] = true
+    Enviar("L\t" .. Escapar(o) .. "\t" .. Escapar(lugar))
+end
+
 -- w = widget vivo (veio do FindAllOf agora)
 local function Processar(w, endereco)
-    if not w:IsValid() or not EhDeVerdade(w, endereco) then return end
+    if not w:IsValid() then return end
+    local lugar = EhDeVerdade(w, endereco)
+    if not lugar then return end
     local txt = Texto(w)
     if txt == nil or txt == "" then return end
-    if nossas[txt] then return end
+    local o = nossas[txt]
+    if o then
+        Avisar(o, lugar)
+        return
+    end
     local t = trad[txt]
     if t == nil then
         if not pedidos[txt] then
@@ -183,6 +246,9 @@ local function Processar(w, endereco)
             Enviar("T\t" .. Escapar(txt) .. "\t" .. Escapar(Pista(w)))
         end
     elseif t ~= false then
+        Avisar(txt, lugar)
+        local c = curtas[lugar] and curtas[lugar][txt]
+        if c then t = c end
         if primeiraTroca then Log("primeira troca de texto: " .. Pista(w)) end
         local okSet = pcall(function() w:SetText(FText(t)) end)
         if primeiraTroca then
@@ -230,7 +296,7 @@ local function DevolverOriginais()
             end
         end
     end
-    trad, pedidos, nossas, aplicados = {}, {}, {}, {}
+    trad, pedidos, nossas, aplicados, curtas = {}, {}, {}, {}, {}
     Log("originais devolvidos em " .. n .. " textos")
 end
 

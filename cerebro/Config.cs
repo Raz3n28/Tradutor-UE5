@@ -108,6 +108,8 @@ internal static class LiveConfig
     public static bool Encaixar = true;
     // memoria de exemplos: os termos travados pelo jogador vao de modelo para os termos novos parecidos
     public static bool Exemplos = true;
+    // telas apertadas (lugares "tela / texto", ver Glossario.Onde): nelas vai a abreviacao do termo
+    public static readonly HashSet<string> TelasCurtas = new HashSet<string>();
     // tecla global (Windows) que pausa/continua a traducao sem abrir o menu: Keys do WinForms com
     // Ctrl/Alt/Shift juntos. 0 = nenhuma.
     public static int TeclaAlternar = 0x78;   // F9
@@ -209,6 +211,11 @@ internal static class LiveConfig
             else if (k == "verificar_glossario") VerificarGlossario = v != "0";
             else if (k == "encaixar") Encaixar = v != "0";
             else if (k == "exemplos") Exemplos = v != "0";
+            else if (k == "telas_curtas")
+            {
+                TelasCurtas.Clear();
+                foreach (string t in v.Split('|')) if (t.Trim().Length > 0) TelasCurtas.Add(t.Trim());
+            }
             else if (k == "tecla_alternar") { if (int.TryParse(v, out n)) TeclaAlternar = n; }
             else if (k == "escala") { if (int.TryParse(v, out n)) Escala = Mathf.Clamp(n, 80, 160); }
             else if (k == "menu_idioma") { if (int.TryParse(v, out n)) LiveTxt.Atual = n; }
@@ -244,6 +251,7 @@ internal static class LiveConfig
             sb.AppendLine("verificar_glossario=" + (VerificarGlossario ? "1" : "0"));
             sb.AppendLine("encaixar=" + (Encaixar ? "1" : "0"));
             sb.AppendLine("exemplos=" + (Exemplos ? "1" : "0"));
+            sb.AppendLine("telas_curtas=" + string.Join("|", TelasCurtas));
             sb.AppendLine("tecla_alternar=" + TeclaAlternar);
             sb.AppendLine("escala=" + Escala);
             sb.AppendLine("menu_idioma=" + LiveTxt.Atual);

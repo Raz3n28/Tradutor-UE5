@@ -1082,6 +1082,9 @@ internal sealed class Janela : Form
     private DataGridView grade;
     private Label glosInfo, glosContagem;
     private Button btnUsarNova, btnManter;
+    private FlowLayoutPanel glosTelas;
+    private Label glosAbrStatus;
+    private int larguraDet;
     private FlowLayoutPanel filtros;
     private int versaoGrade = -1;
     private readonly List<TermoGlossario> filtrado = new List<TermoGlossario>();
@@ -1149,6 +1152,7 @@ internal sealed class Janela : Form
 
         grade.Columns.Add(new DataGridViewTextBoxColumn { Name = "orig", HeaderText = LiveTxt.T("col_orig"), ReadOnly = true, FillWeight = 22 });
         grade.Columns.Add(new DataGridViewTextBoxColumn { Name = "trad", HeaderText = LiveTxt.T("col_trad") + " ✎", FillWeight = 26 });
+        grade.Columns.Add(new DataGridViewTextBoxColumn { Name = "curta", HeaderText = LiveTxt.T("col_curta") + " ✎", FillWeight = 11 });
         DataGridViewComboBoxColumn cc = new DataGridViewComboBoxColumn
         {
             Name = "cat",
@@ -1188,12 +1192,23 @@ internal sealed class Janela : Form
         det.Margin = new Padding(0, Tema.D(6), 0, 0);
         glosInfo = Tema.Rotulo("", w - Tema.D(24), Tema.Texto, 9f);
         det.Controls.Add(glosInfo);
+        // telas onde o termo apareceu: marcar = tela apertada (usa a abreviacao)
+        larguraDet = w - Tema.D(24);
+        glosTelas = Tema.Linha(larguraDet);
+        det.Controls.Add(glosTelas);
         FlowLayoutPanel acoes = Tema.Linha(w - Tema.D(24));
         btnUsarNova = Tema.Botao(LiveTxt.T("glos_usar_nova"), Tema.D(200), Tema.D(28), 1, delegate { ResolverSelecionado(true); });
         btnManter = Tema.Botao(LiveTxt.T("glos_manter"), Tema.D(200), Tema.D(28), 0, delegate { ResolverSelecionado(false); });
         acoes.Controls.Add(btnUsarNova);
         acoes.Controls.Add(btnManter);
         acoes.Controls.Add(Tema.Botao(LiveTxt.T("glos_apagar_sel"), Tema.D(180), Tema.D(28), 3, delegate { ApagarSelecionados(); }));
+        acoes.Controls.Add(Tema.Botao(LiveTxt.T("abr_ia"), Tema.D(200), Tema.D(28), 0, delegate
+        {
+            Abreviador.Iniciar(Selecionados());
+            MostrarSelecionado();
+        }));
+        glosAbrStatus = Tema.Rotulo("", larguraDet, Tema.Fraco, 8.5f);
+        acoes.Controls.Add(glosAbrStatus);
         det.Controls.Add(acoes);
         t.Controls.Add(det);
 
@@ -1291,7 +1306,7 @@ internal sealed class Janela : Form
         for (int i = 0; i < max; i++)
         {
             TermoGlossario t = filtrado[i];
-            int r = grade.Rows.Add(t.Original, t.Traducao, Categorias.Nome(t.Cat), Nivel(t), t.Travado, t.Onde);
+            int r = grade.Rows.Add(t.Original, t.Traducao, t.Curta ?? "", Categorias.Nome(t.Cat), Nivel(t), t.Travado, t.Onde);
             DataGridViewRow row = grade.Rows[r];
             if (t.Conflito) row.Cells["nivel"].Style.ForeColor = Tema.Aviso;
             else if (t.Travado) row.Cells["nivel"].Style.ForeColor = Tema.Destaque;
@@ -1342,6 +1357,14 @@ internal sealed class Janela : Form
             TradCache.Add(t.Original, nova);
             LiveMotor.Substituir(antiga, nova);
         }
+        else if (col == "curta")
+        {
+            string nova = ((row.Cells["curta"].Value as string) ?? "").Trim();
+            if (nova == (t.Curta ?? "")) return;
+            t.Curta = nova;
+            Glossario.Marcar();
+            if (LiveConfig.TelasCurtas.Count > 0) Ponte.Reenviar = true;
+        }
         else if (col == "cat")
         {
             string nome = row.Cells["cat"].Value as string;
@@ -1373,6 +1396,9 @@ internal sealed class Janela : Form
         TermoGlossario t = grade.CurrentRow != null ? Termo(grade.CurrentRow.Index) : null;
         btnUsarNova.Visible = t != null && t.Conflito;
         btnManter.Visible = t != null && t.Conflito;
+        glosAbrStatus.Text = Abreviador.Status;
+        glosAbrStatus.ForeColor = Abreviador.StatusErro ? Tema.Erro : Tema.Ok;
+        MostrarTelas(t);
         if (t == null)
         {
             glosInfo.Text = LiveTxt.T("glos_editar_dica2");
@@ -1385,6 +1411,49 @@ internal sealed class Janela : Form
         if (!string.IsNullOrEmpty(t.Onde)) s += "\n" + LiveTxt.T("col_onde") + ": " + t.Onde;
         glosInfo.Text = s;
         glosInfo.ForeColor = t.Conflito ? Tema.Aviso : Tema.Texto;
+    }
+
+    private List<TermoGlossario> Selecionados()
+    {
+        List<TermoGlossario> l = new List<TermoGlossario>();
+        foreach (DataGridViewRow r in grade.SelectedRows)
+        {
+            TermoGlossario t = Termo(r.Index);
+            if (t != null) l.Add(t);
+        }
+        if (l.Count == 0 && grade.CurrentRow != null && Termo(grade.CurrentRow.Index) != null) l.Add(Termo(grade.CurrentRow.Index));
+        return l;
+    }
+
+    // telas (lugares) onde o termo apareceu nesta sessao + a primeira guardada no glossario.
+    // Marcada = tela apertada: ali vai a abreviacao de TODOS os termos que tem uma.
+    private void MostrarTelas(TermoGlossario t)
+    {
+        glosTelas.SuspendLayout();
+        glosTelas.Controls.Clear();
+        if (t != null)
+        {
+            List<string> ls = new List<string>(Ponte.Lugares(t.Original));
+            if (!string.IsNullOrEmpty(t.Onde) && !ls.Contains(t.Onde)) ls.Add(t.Onde);
+            Label tit = Tema.Rotulo(LiveTxt.T(ls.Count > 0 ? "abr_telas" : "abr_sem_telas"), larguraDet, Tema.Fraco, 8.5f);
+            glosTelas.Controls.Add(tit);
+            glosTelas.SetFlowBreak(tit, true);
+            for (int i = 0; i < ls.Count; i++)
+            {
+                string lugar = ls[i];
+                CheckBox cb = Tema.Marca(lugar, LiveConfig.TelasCurtas.Contains(lugar), larguraDet);
+                cb.Margin = new Padding(0, Tema.D(2), Tema.D(14), Tema.D(2));
+                cb.CheckedChanged += delegate
+                {
+                    if (cb.Checked) LiveConfig.TelasCurtas.Add(lugar);
+                    else LiveConfig.TelasCurtas.Remove(lugar);
+                    LiveConfig.Marcar();
+                    Ponte.Reenviar = true;
+                };
+                glosTelas.Controls.Add(cb);
+            }
+        }
+        glosTelas.ResumeLayout();
     }
 
     private void ResolverSelecionado(bool usarNova)
