@@ -16,3 +16,25 @@ ue4ss\Mods\TradutorUE5\dados\   config.txt, cache_<idioma>.txt, glossario_<idiom
 ue4ss\UE4SS.log                 log do UE4SS (linhas [TradutorUE5])
 
 O tradutor fecha sozinho quando o jogo fecha.
+
+MENU (F8)
+01 Painel      resumo: estado, modo, idioma, glossario, cache, ponte do jogo e as ultimas traducoes
+02 Geral       comecar/pausar, modo gratis ou com chave, idioma de destino, o que traduzir
+03 Provedor    servico de IA, URL, chave e modelo; "Testar conexao"
+04 Estilo      estilo pronto, como a IA traduz, instrucoes extras (com exemplos) e o texto sobre o jogo
+05 Glossario   termos com categoria, nivel (Novo -> Confirmado -> Travado), onde apareceram e conflitos
+06 Categorias  13 categorias de cultivo (Personagem, Lugar, Seita, Reino, Tecnica, Pilula, Artefato, Item,
+               Atributo, Missao, Menu, Titulo, Outros) + ate 8 suas; palavras-chave e instrucao para a IA
+07 Avancado    pedidos por minuto, textos por pedido, exportar/importar, limpar cache
+08 Log         o que o tradutor esta fazendo
+09 Interface   tamanho da janela do menu
+Embaixo, a esquerda: idioma do menu (PT EN ES RU FR DE).
+
+GLOSSARIO INTELIGENTE (modo com chave)
+- A categoria de cada termo sai do nome do widget no jogo, do fim do termo em chines (丹 pilula, 派 seita,
+  山 lugar, 诀 tecnica...) e, no modo com chave, da propria IA.
+- A IA tambem devolve os nomes proprios que achou dentro das frases (dialogos): eles entram no glossario.
+- Novo: a IA traduziu uma vez. Confirmado: repetiu a mesma traducao 3 vezes. Travado: voce editou/travou.
+- Frase com termo travado ou confirmado: se a traducao nao usou a forma salva, ela e refeita uma vez.
+- A IA deu outra traducao para um termo: aparece como Conflito (filtro "Conflitos"); voce escolhe qual fica.
+- Glossarios e categorias da versao anterior sao convertidos sozinhos para as categorias novas.

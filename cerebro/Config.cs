@@ -100,6 +100,12 @@ internal static class LiveConfig
     public static string FonteTrad = "";
     // false = pede para a IA pensar o minimo (mais rapido); true = deixa o modelo pensar (pode traduzir melhor)
     public static bool Raciocinio = false;
+    // glossario inteligente (so modo com chave): a IA tambem devolve os termos que achou dentro das frases,
+    // e a traducao que ignorou um termo travado/confirmado do glossario e refeita uma vez
+    public static bool ExtrairTermos = true;
+    public static bool VerificarGlossario = true;
+    // tamanho da janela do menu, em % (aba Interface)
+    public static int Escala = 100;
 
     public static readonly Dictionary<string, string> Chaves = new Dictionary<string, string>();
     public static readonly Dictionary<string, string> Urls = new Dictionary<string, string>();
@@ -192,6 +198,9 @@ internal static class LiveConfig
             else if (k == "fonte_min") { if (int.TryParse(v, out n)) FonteMin = Mathf.Clamp(n, 50, 90); }
             else if (k == "fonte_trad") FonteTrad = v;
             else if (k == "raciocinio") Raciocinio = v == "1";
+            else if (k == "extrair_termos") ExtrairTermos = v != "0";
+            else if (k == "verificar_glossario") VerificarGlossario = v != "0";
+            else if (k == "escala") { if (int.TryParse(v, out n)) Escala = Mathf.Clamp(n, 80, 160); }
             else if (k == "menu_idioma") { if (int.TryParse(v, out n)) LiveTxt.Atual = n; }
             else if (k == "estilo") { if (int.TryParse(v, out n)) Estilo = Mathf.Clamp(n, 0, Estilos.Length - 1); }
             else if (k == "prompt") PromptExtra = v.Replace("\\n", "\n");
@@ -221,6 +230,9 @@ internal static class LiveConfig
             sb.AppendLine("fonte_min=" + FonteMin);
             sb.AppendLine("fonte_trad=" + FonteTrad);
             sb.AppendLine("raciocinio=" + (Raciocinio ? "1" : "0"));
+            sb.AppendLine("extrair_termos=" + (ExtrairTermos ? "1" : "0"));
+            sb.AppendLine("verificar_glossario=" + (VerificarGlossario ? "1" : "0"));
+            sb.AppendLine("escala=" + Escala);
             sb.AppendLine("menu_idioma=" + LiveTxt.Atual);
             sb.AppendLine("estilo=" + Estilo);
             sb.AppendLine("jogo=" + (Jogo ?? "").Replace("\r", " ").Replace("\n", " "));

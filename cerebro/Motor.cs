@@ -30,6 +30,16 @@ internal static class LiveMotor
     // ultimas frases traduzidas (original, traducao): vao como contexto no pedido para a IA
     private static readonly List<string[]> recentes = new List<string[]>();
     private const int MaxRecentes = 3;
+    // textos que voltaram para a fila porque a traducao ignorou um termo obrigatorio do glossario
+    // (a segunda traducao e aceita de qualquer jeito: no maximo um pedido a mais por texto)
+    private static readonly HashSet<string> reforcados = new HashSet<string>();
+    // ultimas traducoes (original, traducao) para o Painel; a mais nova no fim
+    private static readonly List<string[]> ultimas = new List<string[]>();
+    public static List<string[]> Ultimas { get { return ultimas; } }
+    // hora de cada pedido do ultimo minuto (Painel: pedidos/min)
+    private static readonly Queue<float> envios = new Queue<float>();
+    public static int Refeitos;       // traducoes refeitas por ignorar o glossario
+    public static int TermosAchados;  // termos novos que a IA achou dentro das frases
 
     // IA: pedidos ao mesmo tempo acompanham os "pedidos por minuto" (60 por minuto = 6 de uma vez), entre 3 e 8.
     // Quem esta num plano gratis de IA e toma 429 baixa os pedidos por minuto e isto baixa junto.
@@ -77,6 +87,24 @@ internal static class LiveMotor
     public static bool VarrerAgora;
 
     public static int NaFila { get { return fila.Count + emVoo; } }
+
+    public static int PedidosMinuto
+    {
+        get
+        {
+            float agora = Time.unscaledTime;
+            while (envios.Count > 0 && agora - envios.Peek() > 60f) envios.Dequeue();
+            return envios.Count;
+        }
+    }
+
+    // algum destes textos voltou porque ignorou o glossario? (o pedido leva o aviso reforcado)
+    public static bool Reforcar(List<string> textos)
+    {
+        if (reforcados.Count == 0 || textos == null) return false;
+        for (int i = 0; i < textos.Count; i++) if (reforcados.Contains(textos[i])) return true;
+        return false;
+    }
     public static int EmVoo { get { return emVoo; } }
 
     public static bool Nossa(string s)
@@ -149,6 +177,9 @@ internal static class LiveMotor
         LotesOk = 0;
         LotesFallback = 0;
         Retraduzidos = 0;
+        Refeitos = 0;
+        TermosAchados = 0;
+        ultimas.Clear();
     }
 
     // Esvazia as memorias (ao trocar idioma, provedor, estilo...). O cache em disco nao e apagado.
@@ -165,6 +196,7 @@ internal static class LiveMotor
         pistas.Clear();
         substituicoes.Clear();
         recentes.Clear();
+        reforcados.Clear();
         fila.Clear();
         naFila.Clear();
         retraduzindo.Clear();
@@ -273,7 +305,8 @@ internal static class LiveMotor
             if (fila.Count == 0) inicioEspera = agoraFila;
             ultimaEntrada = agoraFila;
             fila.AddLast(tpl);
-            if (origem != null && !pistas.ContainsKey(tpl) && Glossario.Termo(tpl)) pistas[tpl] = Pista(origem);
+            // pista de termos (categoria) e de frases (onde os termos achados dentro delas apareceram)
+            if (origem != null && !pistas.ContainsKey(tpl)) pistas[tpl] = Pista(origem);
         }
         return null;
     }
@@ -459,6 +492,8 @@ internal static class LiveMotor
         else proximoEnvio = agora + 60f / Mathf.Max(1, LiveConfig.Rpm);
         emVoo++;
         Pedidos++;
+        envios.Enqueue(agora);
+        if (envios.Count > 2000) envios.Dequeue();
         _ = Enviar(p, lote, geracao, ep);
     }
 
@@ -553,7 +588,8 @@ internal static class LiveMotor
         if (codigo == 200)
         {
             List<string> catsIA;
-            List<string> trad = Provedores.Interpretar(p, lote, corpo, ep, out catsIA);
+            List<string[]> achados;
+            List<string> trad = Provedores.Interpretar(p, lote, corpo, ep, out catsIA, out achados);
             if (lote.Count > 1)
             {
                 if (trad != null) LotesOk++; else LotesFallback++;
@@ -569,8 +605,27 @@ internal static class LiveMotor
             {
                 bool provisorio = google && ep == EpReserva;
                 int reFeitos = 0;
+                string[] pistasLote = new string[lote.Count];
                 for (int i = 0; i < lote.Count; i++)
                 {
+                    // modo com chave: a traducao tem que usar os termos travados/confirmados do glossario.
+                    // Nao usou: volta para a fila uma vez, sozinha e com o aviso reforcado.
+                    if (!google && LiveConfig.VerificarGlossario && !retraduzindo.Contains(lote[i]))
+                    {
+                        TermoGlossario faltou = Faltou(lote[i], trad[i]);
+                        if (faltou != null)
+                        {
+                            if (reforcados.Add(lote[i]))
+                            {
+                                Refeitos++;
+                                LiveLog.Info("lg_glos_refazer", faltou.Original, faltou.Traducao);
+                                Devolver(lote[i], false, true);
+                                continue;
+                            }
+                            LiveLog.Aviso("lg_glos_ignorou", faltou.Original, faltou.Traducao);
+                        }
+                        reforcados.Remove(lote[i]);
+                    }
                     if (retraduzindo.Remove(lote[i]))
                     {
                         // retraducao de um provisorio: so troca se veio de um endereco bom
@@ -590,14 +645,18 @@ internal static class LiveMotor
                         string pista;
                         pistas.TryGetValue(lote[i], out pista);
                         pistas.Remove(lote[i]);
+                        pistasLote[i] = pista;
                         Glossario.Auto(lote[i], trad[i], pista, catsIA != null ? Categorias.PorNome(catsIA[i]) : -1);
                         LembrarRecente(lote[i], trad[i]);
+                        ultimas.Add(new string[] { lote[i], trad[i] });
+                        if (ultimas.Count > 30) ultimas.RemoveAt(0);
                         Traduzidos++;
                     }
                     naFila.Remove(lote[i]);
                     tentativas.Remove(lote[i]);
                     unitarios.Remove(lote[i]);
                 }
+                if (achados != null) GuardarAchados(lote, trad, achados, pistasLote);
                 if (reFeitos > 0)
                 {
                     Retraduzidos += reFeitos;
@@ -681,6 +740,39 @@ internal static class LiveMotor
         backoff++;
         pausaAte = agora + pausa;
         for (int i = lote.Count - 1; i >= 0; i--) Devolver(lote[i], false, false);
+    }
+
+    // primeiro termo obrigatorio do glossario (travado ou confirmado, dentro do texto) que a traducao nao usou
+    private static TermoGlossario Faltou(string original, string traducao)
+    {
+        List<TermoGlossario> obrig = Glossario.Obrigatorios(original);
+        for (int i = 0; i < obrig.Count; i++)
+            if (!Glossario.Usou(traducao, obrig[i].Traducao)) return obrig[i];
+        return null;
+    }
+
+    // Termos que a IA achou dentro das frases ("g"): so entram se o termo esta mesmo numa frase do lote
+    // e a traducao dessa frase usou a traducao que a IA disse.
+    private static void GuardarAchados(List<string> lote, List<string> trad, List<string[]> achados, string[] pistasLote)
+    {
+        for (int k = 0; k < achados.Count; k++)
+        {
+            string o = achados[k][0], t = achados[k][1];
+            if (o.Length < 2 || !Glossario.Termo(o)) continue;
+            for (int i = 0; i < lote.Count; i++)
+            {
+                if (lote[i] == o || !Glossario.Aparece(lote[i], o)) continue;
+                if (!Glossario.Usou(trad[i], t)) break;
+                bool novo = !Glossario.Existe(o);
+                Glossario.Visto(o, t, pistasLote[i], Categorias.PorNome(achados[k][2]), lote[i]);
+                if (novo && Glossario.Existe(o))
+                {
+                    TermosAchados++;
+                    LiveLog.Info("lg_termo_achado", o, t);
+                }
+                break;
+            }
+        }
     }
 
     private static void Devolver(string tpl, bool contar, bool unitario)

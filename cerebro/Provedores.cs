@@ -31,10 +31,18 @@ internal static class Provedores
         return Interpretar(p, textos, corpo, ep, out cats);
     }
 
-    // cats = categoria que a IA deu para cada texto ("" = frase), ou null se nao veio (Google, formato antigo)
     public static List<string> Interpretar(Provedor p, List<string> textos, string corpo, int ep, out List<string> cats)
     {
+        List<string[]> termos;
+        return Interpretar(p, textos, corpo, ep, out cats, out termos);
+    }
+
+    // cats = categoria que a IA deu para cada texto ("" = frase), ou null se nao veio (Google, formato antigo)
+    // termos = termos que a IA achou dentro das frases: { original, traducao, categoria } (null se nao veio)
+    public static List<string> Interpretar(Provedor p, List<string> textos, string corpo, int ep, out List<string> cats, out List<string[]> termos)
+    {
         cats = null;
+        termos = null;
         int esperado = textos.Count;
         try
         {
@@ -45,8 +53,8 @@ internal static class Provedores
                 if (g != null) for (int i = 0; i < g.Count; i++) g[i] = Composto(g[i]);
                 return g;
             }
-            List<string> lista = ListaDeTextos(Conteudo(p, corpo), out cats);
-            if (lista == null || lista.Count != esperado) { cats = null; return null; }
+            List<string> lista = ListaDeTextos(Conteudo(p, corpo), out cats, out termos);
+            if (lista == null || lista.Count != esperado) { cats = null; termos = null; return null; }
             if (cats != null && cats.Count != esperado) cats = null;   // categorias erradas nao estragam a traducao
             for (int i = 0; i < lista.Count; i++) lista[i] = Composto(lista[i]);
             return lista;
@@ -82,6 +90,7 @@ internal static class Provedores
         StringBuilder sb = new StringBuilder();
         sb.Append("You classify short terms (names, items, buttons, titles...) of " + LiveConfig.Jogo + ". ");
         sb.Append("The user sends a JSON array of terms; they may be Chinese, English or mixed. ");
+        sb.Append("Some items end with \" || context: ...\" (a sentence where the term appeared): use it only to understand the term, classify the term itself. ");
         sb.Append("For each term pick the best category from the list below. ");
         sb.Append("Reply with ONLY a JSON array of category names copied exactly from the list, with exactly the same number of items and the same order as the input.");
         sb.Append("\nCategories:").Append(Categorias.ListaParaIA(true));
@@ -95,7 +104,8 @@ internal static class Provedores
         {
             if (string.IsNullOrEmpty(corpo)) return null;
             List<string> cats;
-            List<string> l = ListaDeTextos(Conteudo(p, corpo), out cats);
+            List<string[]> termos;
+            List<string> l = ListaDeTextos(Conteudo(p, corpo), out cats, out termos);
             return l != null && l.Count == esperado ? l : null;
         }
         catch (Exception e)
@@ -447,14 +457,28 @@ internal static class Provedores
           .Append(". Each string is ONE item even when it contains line breaks (\\n): keep its line breaks inside that item, ")
           .Append("and never merge two strings into one or split one into two. ");
         // lote com termo curto (vai entrar no glossario): a IA tambem diz a categoria de cada um, e ja traduz
-        // seguindo a instrucao dessa categoria. Lote so com frases: formato simples (gasta menos).
+        // seguindo a instrucao dessa categoria. Lote com frase (e "extrair termos" ligado): a IA tambem devolve
+        // os nomes proprios e termos do jogo que achou dentro das frases (alimenta o glossario).
+        // Nenhum dos dois: formato simples (gasta menos).
         bool comCategoria = TemTermo(textos);
-        if (comCategoria)
+        bool comTermos = LiveConfig.ExtrairTermos && TemFrase(textos);
+        if (comCategoria || comTermos)
         {
-            sb.Append("Reply with ONLY a JSON object {\"t\": [...], \"c\": [...]}. ");
-            sb.Append("\"t\" = the translations, with exactly the same number of items and the same order as the input. ");
-            sb.Append("\"c\" = for each input string, in the same order: if it is a short term (a name, item, weapon, skill, place, button, title...), ");
-            sb.Append("the name of its category copied exactly from the category list below; if it is a sentence or longer text, \"\".");
+            sb.Append("Reply with ONLY a JSON object {\"t\": [...]");
+            if (comCategoria) sb.Append(", \"c\": [...]");
+            if (comTermos) sb.Append(", \"g\": [...]");
+            sb.Append("}. \"t\" = the translations, with exactly the same number of items and the same order as the input. ");
+            if (comCategoria)
+            {
+                sb.Append("\"c\" = for each input string, in the same order: if it is a short term (a name, place, sect, realm, technique, pill, artifact, item, stat, menu button, title...), ");
+                sb.Append("the name of its category copied exactly from the category list below; if it is a sentence or longer text, \"\". ");
+            }
+            if (comTermos)
+            {
+                sb.Append("\"g\" = game-specific proper terms that appear INSIDE the longer strings (names of people, places, sects, cultivation realms, techniques, pills, artifacts, special items), ");
+                sb.Append("each as [term copied exactly from the input, its translation exactly as you wrote it in \"t\", category name from the list below]. ");
+                sb.Append("At most 5 per string; skip common words and whole sentences; [] if there are none.");
+            }
         }
         else
             sb.Append("Reply with ONLY a JSON array of strings, with exactly the same number of items and the same order as the input.");
@@ -466,8 +490,8 @@ internal static class Provedores
         string extra = LiveConfig.PromptExtra;
         if (extra != null && extra.Trim().Length > 0)
             sb.Append("\nExtra instructions from the player (follow them, but the hard rules above always win): ").Append(extra.Trim());
-        if (comCategoria)
-            sb.Append("\nCategories (for \"c\"). Translate each short term following its category's instruction; the hard rules above always win:")
+        if (comCategoria || comTermos)
+            sb.Append("\nCategories (for \"c\" and \"g\"). Translate each short term following its category's instruction; the hard rules above always win:")
               .Append(Categorias.ListaParaIA(false));
         else
         {
@@ -482,6 +506,9 @@ internal static class Provedores
             sb.Append("\nGlossary: when one of these terms appears inside a string, translate it exactly like this:");
             for (int i = 0; i < termos.Count; i++)
                 sb.Append("\n- ").Append(UmaLinha(termos[i].Original)).Append(" => ").Append(UmaLinha(termos[i].Traducao));
+            // texto que voltou porque a traducao anterior ignorou o glossario
+            if (LiveMotor.Reforcar(textos))
+                sb.Append("\nIMPORTANT: a previous translation of this text ignored the glossary. Every glossary term above that appears in the input MUST be translated exactly as listed (it may be inflected for grammar).");
         }
 
         // contexto: o que apareceu na tela pouco antes (ajuda em dialogos: genero, tratamento, assunto)
@@ -493,6 +520,15 @@ internal static class Provedores
                 sb.Append("\n- ").Append(UmaLinha(recentes[i][0])).Append(" => ").Append(UmaLinha(recentes[i][1]));
         }
         return sb.ToString();
+    }
+
+    // frase = texto que nao e termo curto, com algum tamanho (onde pode ter nome proprio dentro)
+    private static bool TemFrase(List<string> textos)
+    {
+        if (textos == null) return false;
+        for (int i = 0; i < textos.Count; i++)
+            if (textos[i].Length >= 6 && !Glossario.Termo(textos[i])) return true;
+        return false;
     }
 
     private static bool TemTermo(List<string> textos)
@@ -509,10 +545,12 @@ internal static class Provedores
     }
 
     // Tira cercas de codigo (```json) e le o primeiro array JSON de strings.
-    // Aceita os dois formatos: array de strings, ou objeto {"t": [...], "c": [...]} (traducoes + categorias).
-    private static List<string> ListaDeTextos(string conteudo, out List<string> cats)
+    // Aceita os dois formatos: array de strings, ou objeto {"t": [...], "c": [...], "g": [[o, t, c], ...]}
+    // (traducoes + categorias + termos achados nas frases).
+    private static List<string> ListaDeTextos(string conteudo, out List<string> cats, out List<string[]> termos)
     {
         cats = null;
+        termos = null;
         if (conteudo == null) return null;
         int chave = conteudo.IndexOf('{');
         int colchete = conteudo.IndexOf('[');
@@ -538,6 +576,19 @@ internal static class Provedores
                     {
                         cats = new List<string>();
                         for (int i = 0; i < c.Count; i++) cats.Add((c[i] as string) ?? "");
+                    }
+                    List<object> g = Json.Obter(obj, "g") as List<object>;
+                    if (g != null)
+                    {
+                        termos = new List<string[]>();
+                        for (int i = 0; i < g.Count && termos.Count < 60; i++)
+                        {
+                            List<object> item = g[i] as List<object>;
+                            if (item == null || item.Count < 2) continue;
+                            string o = item[0] as string, tr = item[1] as string;
+                            if (string.IsNullOrEmpty(o) || string.IsNullOrEmpty(tr)) continue;
+                            termos.Add(new string[] { o.Trim(), tr.Trim(), item.Count > 2 ? ((item[2] as string) ?? "") : "" });
+                        }
                     }
                     return r1;
                 }
