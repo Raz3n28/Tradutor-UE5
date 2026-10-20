@@ -49,3 +49,8 @@ MEMORIA DE EXEMPLOS (modo com chave)
 Os termos que voce travou (ou editou) viram modelo: quando chega um termo novo parecido (mesmo final em
 chines, mesma categoria), ele vai junto no pedido para a IA seguir o seu padrao.
 Ex.: travou 青城派 = "Seita Qingcheng" -> o 峨眉派 novo sai "Seita Emei". Liga/desliga na aba Estilo.
+
+TECLA DE PAUSAR / CONTINUAR
+Aba Avancado > Teclas (padrao F9). Funciona com o jogo na frente, sem abrir o menu; um som avisa
+(agudo = traduzindo, grave = pausado). E uma tecla global do Windows: enquanto o tradutor estiver aberto,
+ela nao chega no jogo nem em outros programas. F8 continua sendo a tecla do menu.

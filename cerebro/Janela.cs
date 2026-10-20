@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using DColor = System.Drawing.Color;
 
@@ -63,7 +64,11 @@ internal sealed class Janela : Form
         ForeColor = Tema.Texto;
         DoubleBuffered = true;
         KeyPreview = true;
-        KeyDown += delegate (object s, KeyEventArgs e) { if (e.KeyCode == Keys.F8) Hide(); };
+        KeyDown += delegate (object s, KeyEventArgs e)
+        {
+            if (capturando) { CapturarTecla(e); return; }
+            if (e.KeyCode == Keys.F8) Hide();
+        };
 
         bandeja.Icon = SystemIcons.Application;
         bandeja.Text = "Universal Translator UE5";
@@ -328,6 +333,109 @@ internal sealed class Janela : Form
         else Hide();
     }
 
+    // ---------------- tecla global: pausar/continuar sem abrir o menu ----------------
+    // RegisterHotKey do Windows: funciona com o jogo em primeiro plano e nao passa pelo UE4SS.
+    // A tecla escolhida deixa de chegar no jogo (o Windows entrega so para o tradutor).
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint modifiers, uint vk);
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+    [DllImport("user32.dll")]
+    private static extern bool MessageBeep(uint tipo);
+    private const int WM_HOTKEY = 0x0312;
+    private const int IdTecla = 0x5455;
+    private const uint MOD_ALT = 1, MOD_CONTROL = 2, MOD_SHIFT = 4, MOD_NOREPEAT = 0x4000;
+    private bool teclaRegistrada;
+    private string teclaErro = "";
+    private bool capturando;
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        RegistrarTecla();
+    }
+
+    private void RegistrarTecla()
+    {
+        try { RegistrarTeclaInterno(); }
+        catch (Exception e)
+        {
+            teclaRegistrada = false;
+            LiveLog.Erro("le_parte", e, "hotkey");
+        }
+    }
+
+    private void RegistrarTeclaInterno()
+    {
+        if (teclaRegistrada) { UnregisterHotKey(Handle, IdTecla); teclaRegistrada = false; }
+        teclaErro = "";
+        Keys k = (Keys)LiveConfig.TeclaAlternar;
+        Keys codigo = k & Keys.KeyCode;
+        if (codigo == Keys.None) return;
+        uint mods = MOD_NOREPEAT;
+        if ((k & Keys.Control) != 0) mods |= MOD_CONTROL;
+        if ((k & Keys.Alt) != 0) mods |= MOD_ALT;
+        if ((k & Keys.Shift) != 0) mods |= MOD_SHIFT;
+        teclaRegistrada = RegisterHotKey(Handle, IdTecla, mods, (uint)codigo);
+        if (!teclaRegistrada)
+        {
+            teclaErro = LiveTxt.F("tecla_erro", NomeTecla(k));
+            LiveLog.Aviso("lg_tecla_erro", NomeTecla(k));
+        }
+        else LiveLog.Info("lg_tecla", NomeTecla(k));
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        if (m.Msg == WM_HOTKEY && m.WParam.ToInt32() == IdTecla)
+        {
+            AlternarTraducao();
+            return;
+        }
+        base.WndProc(ref m);
+    }
+
+    private void AlternarTraducao()
+    {
+        LiveConfig.Ativo = !LiveConfig.Ativo;
+        if (LiveConfig.Ativo) LiveMotor.VarrerAgora = true;
+        LiveLog.Info(LiveConfig.Ativo ? "lg_comecou" : "lg_pausada");
+        // o jogo esta na frente: um som diz o que aconteceu (ligou = agudo, pausou = grave)
+        try { MessageBeep(LiveConfig.Ativo ? 0x40u : 0x10u); }   // MB_ICONASTERISK / MB_ICONHAND
+        catch { }
+        AtualizarStatus();
+        if (Visible && (aba == AbaPainel || aba == AbaGeral)) MostrarAba(aba);
+    }
+
+    public static string NomeTecla(Keys k)
+    {
+        Keys codigo = k & Keys.KeyCode;
+        if (codigo == Keys.None) return LiveTxt.T("tecla_nenhuma");
+        string s = "";
+        if ((k & Keys.Control) != 0) s += "Ctrl+";
+        if ((k & Keys.Alt) != 0) s += "Alt+";
+        if ((k & Keys.Shift) != 0) s += "Shift+";
+        return s + codigo.ToString();
+    }
+
+    // modo "aperte uma tecla" (aba Avancado): Esc cancela, Delete/Backspace tira a tecla
+    private void CapturarTecla(KeyEventArgs e)
+    {
+        Keys codigo = e.KeyCode;
+        if (codigo == Keys.ControlKey || codigo == Keys.ShiftKey || codigo == Keys.Menu) return;   // so o modificador
+        e.Handled = true;
+        e.SuppressKeyPress = true;
+        capturando = false;
+        if (codigo == Keys.Escape) { MostrarAba(AbaAvanc); return; }
+        if (codigo == Keys.Delete || codigo == Keys.Back) LiveConfig.TeclaAlternar = 0;
+        else if (codigo == Keys.F8 && e.Modifiers == Keys.None) { teclaErro = LiveTxt.T("tecla_f8"); MostrarAba(AbaAvanc); return; }
+        else LiveConfig.TeclaAlternar = (int)(codigo | e.Modifiers);
+        LiveConfig.Marcar();
+        RegistrarTecla();
+        MostrarAba(AbaAvanc);
+    }
+
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
         // o X so esconde: o tradutor continua rodando ate o jogo fechar
@@ -345,6 +453,8 @@ internal sealed class Janela : Form
         if (saindo) return;
         saindo = true;
         relogio.Stop();
+        try { if (teclaRegistrada) UnregisterHotKey(Handle, IdTecla); } catch { }
+        teclaRegistrada = false;
         Program.Salvar();
         bandeja.Visible = false;
         bandeja.Dispose();
@@ -1561,6 +1671,34 @@ internal sealed class Janela : Form
             ritmo.Controls.Add(l2);
             Dica(ritmo, LiveTxt.T("rpm_aviso"));
         }
+
+        // tecla global de pausar/continuar
+        FlowLayoutPanel tec = Cartao(LiveTxt.T("av_teclas"));
+        FlowLayoutPanel lt = Tema.Linha(Interna);
+        Label rt = Tema.Rotulo(LiveTxt.T("tecla_pausa"), Tema.D(260), Tema.Texto, 9f);
+        rt.AutoSize = false;
+        rt.Width = Tema.D(260);
+        rt.Height = Tema.D(28);
+        rt.TextAlign = ContentAlignment.MiddleLeft;
+        lt.Controls.Add(rt);
+        string nomeAtual = capturando ? LiveTxt.T("tecla_aperte") : NomeTecla((Keys)LiveConfig.TeclaAlternar);
+        lt.Controls.Add(Tema.Botao(nomeAtual, Tema.D(200), Tema.D(30), capturando ? 2 : 1, delegate
+        {
+            capturando = !capturando;
+            teclaErro = "";
+            MostrarAba(AbaAvanc);
+        }));
+        lt.Controls.Add(Tema.Botao(LiveTxt.T("tecla_tirar"), Tema.D(120), Tema.D(30), 0, delegate
+        {
+            capturando = false;
+            LiveConfig.TeclaAlternar = 0;
+            LiveConfig.Marcar();
+            RegistrarTecla();
+            MostrarAba(AbaAvanc);
+        }));
+        tec.Controls.Add(lt);
+        Dica(tec, LiveTxt.T(capturando ? "tecla_dica_captura" : "tecla_dica"));
+        if (teclaErro.Length > 0) Rot(tec, teclaErro, Tema.Erro);
 
         FlowLayoutPanel ferr = Cartao(LiveTxt.T("av_ferr"));
         FlowLayoutPanel l3 = Tema.Linha(Interna + Tema.D(6));

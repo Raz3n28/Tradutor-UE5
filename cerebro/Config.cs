@@ -108,6 +108,9 @@ internal static class LiveConfig
     public static bool Encaixar = true;
     // memoria de exemplos: os termos travados pelo jogador vao de modelo para os termos novos parecidos
     public static bool Exemplos = true;
+    // tecla global (Windows) que pausa/continua a traducao sem abrir o menu: Keys do WinForms com
+    // Ctrl/Alt/Shift juntos. 0 = nenhuma.
+    public static int TeclaAlternar = 0x78;   // F9
     // tamanho da janela do menu, em % (aba Interface)
     public static int Escala = 100;
 
@@ -206,6 +209,7 @@ internal static class LiveConfig
             else if (k == "verificar_glossario") VerificarGlossario = v != "0";
             else if (k == "encaixar") Encaixar = v != "0";
             else if (k == "exemplos") Exemplos = v != "0";
+            else if (k == "tecla_alternar") { if (int.TryParse(v, out n)) TeclaAlternar = n; }
             else if (k == "escala") { if (int.TryParse(v, out n)) Escala = Mathf.Clamp(n, 80, 160); }
             else if (k == "menu_idioma") { if (int.TryParse(v, out n)) LiveTxt.Atual = n; }
             else if (k == "estilo") { if (int.TryParse(v, out n)) Estilo = Mathf.Clamp(n, 0, Estilos.Length - 1); }
@@ -240,6 +244,7 @@ internal static class LiveConfig
             sb.AppendLine("verificar_glossario=" + (VerificarGlossario ? "1" : "0"));
             sb.AppendLine("encaixar=" + (Encaixar ? "1" : "0"));
             sb.AppendLine("exemplos=" + (Exemplos ? "1" : "0"));
+            sb.AppendLine("tecla_alternar=" + TeclaAlternar);
             sb.AppendLine("escala=" + Escala);
             sb.AppendLine("menu_idioma=" + LiveTxt.Atual);
             sb.AppendLine("estilo=" + Estilo);
