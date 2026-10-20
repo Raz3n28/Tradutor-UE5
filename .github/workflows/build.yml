@@ -18,10 +18,6 @@ jobs:
       - name: Compilar o cerebro
         run: dotnet publish cerebro/TradutorCerebro.csproj -c Release -o saida/cerebro
 
-      # versao leve: sem o .NET dentro (precisa do .NET 8 Desktop Runtime instalado no PC)
-      - name: Compilar o cerebro (leve)
-        run: dotnet publish cerebro/TradutorCerebro.csproj -c Release -o saida/cerebro-leve -p:SelfContained=false -p:EnableCompressionInSingleFile=false
-
       - name: Montar o pacote
         shell: pwsh
         run: |
@@ -31,17 +27,8 @@ jobs:
           Copy-Item saida/cerebro/TradutorCerebro.exe "$mod/cerebro/"
           Set-Content "$mod/troca/LEIA.txt" "Pasta de conversa entre o jogo e o tradutor. Pode ignorar."
           Copy-Item LEIA-ME.txt saida/pacote/
-          # mesma coisa com o cerebro leve
-          Copy-Item -Recurse saida/pacote saida/pacote-leve
-          Copy-Item -Force saida/cerebro-leve/TradutorCerebro.exe "saida/pacote-leve/ue4ss/Mods/TradutorUE5/cerebro/"
-          Set-Content "saida/pacote-leve/PRECISA-DO-DOTNET.txt" "Esta versao precisa do .NET 8 Desktop Runtime (Windows x64): https://dotnet.microsoft.com/download/dotnet/8.0"
 
       - uses: actions/upload-artifact@v4
         with:
           name: TradutorUE5
           path: saida/pacote/
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: TradutorUE5-leve
-          path: saida/pacote-leve/
