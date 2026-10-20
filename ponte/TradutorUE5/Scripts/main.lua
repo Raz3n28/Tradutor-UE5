@@ -5,6 +5,7 @@
 -- Conversa com o cerebro por dois arquivos na pasta "troca" (ver cerebro/Ponte.cs):
 --   pedidos.txt   (ponte -> cerebro)  T<TAB>texto<TAB>pista | M (menu) | I (jogo abriu)
 --   respostas.txt (cerebro -> ponte)  R<TAB>texto<TAB>traducao | N<TAB>texto | X (devolver originais)
+--                                     C<TAB>encolher(0/1)<TAB>minimo% (config da ponte, vem do menu)
 
 ---------------- ajustes ----------------
 local INTERVALO_MS = 500          -- de quanto em quanto tempo olha a tela
@@ -16,6 +17,8 @@ local ESPERA_MAPA_MS = 3000       -- espera depois que um mapa terminou de carre
 local TECLA_MENU = Key.F8
 local ABRIR_CEREBRO = true        -- abre o TradutorCerebro.exe junto com o jogo
 local CLASSES = { "TextBlock", "RichTextBlock" }
+local INTERVALO_CONFERIR_MS = 100 -- de quanto em quanto tempo confere os textos que ja traduziu
+local GANCHO_TEXTO = true         -- gancho no SetText: o jogo trocou o texto (hover...) -> traduz no quadro seguinte
 
 ---------------- pastas ----------------
 local function PastaDoMod()
@@ -63,7 +66,11 @@ end
 local trad = {}       -- original -> traducao (false = o cerebro disse para nao traduzir)
 local pedidos = {}    -- original -> true (ja mandado, esperando)
 local nossas = {}     -- traducao -> original (texto que a ponte colocou na tela)
-local aplicados = {}  -- endereco do widget -> { w = widget, o = original } (para devolver os originais)
+local aplicados = {}  -- endereco do widget -> { w = widget, o = original, t = traducao, tam = fonte original }
+local ordem = {}      -- enderecos de aplicados, para conferir aos poucos
+local cursor = 1
+local encolher = false   -- encolher a fonte do texto traduzido maior que o original (menu do cerebro)
+local encMin = 0.6
 local saida = {}      -- linhas para pedidos.txt
 local lidoResp = 0
 local naTela = {}     -- endereco do widget -> true (widget de verdade) | false (molde: Default__ ou template)
@@ -86,17 +93,68 @@ local function Gravar()
 end
 
 ---------------- respostas do cerebro ----------------
+---------------- fonte (encolher o texto que nao cabe) ----------------
+-- largura aproximada: chines/japones/coreano = 1, espaco = 0.3, resto = 0.55 (tags <...> nao contam)
+local function Largura(s)
+    s = s:gsub("<[^>]*>", "")
+    local l = 0
+    for _, c in utf8.codes(s) do
+        if c >= 0x2E80 then l = l + 1
+        elseif c == 32 then l = l + 0.3
+        else l = l + 0.55 end
+    end
+    return l
+end
+
+local avisouFonte = false
+local function MudarFonte(a, tamanho)
+    local ok, err = pcall(function()
+        local f = a.w.Font
+        f.Size = tamanho
+        a.w:SetFont(f)
+    end)
+    if not avisouFonte then
+        avisouFonte = true
+        Log("encolher fonte: " .. (ok and "ok" or ("falhou: " .. tostring(err))))
+    end
+    return ok
+end
+
+-- so TextBlock (o RichTextBlock tira a fonte dos estilos)
+local function Encolher(a)
+    if not a.textblock then return end
+    if not encolher then
+        if a.tam and a.mudou then MudarFonte(a, a.tam); a.mudou = false end
+        return
+    end
+    if not a.tam then
+        local ok, t = pcall(function() return a.w.Font.Size end)
+        if not ok or not t or t <= 0 then return end
+        a.tam = t
+    end
+    local ok1, lo = pcall(Largura, a.o)
+    local ok2, lt = pcall(Largura, a.t)
+    if not ok1 or not ok2 then return end
+    local fator = 1
+    if lt > lo and lt > 0 then fator = math.max(encMin, lo / lt) end
+    local novo = math.floor(a.tam * fator + 0.5)
+    if novo ~= (a.atual or a.tam) then
+        if MudarFonte(a, novo) then a.atual = novo; a.mudou = novo ~= a.tam end
+    end
+end
+
 local function DevolverOriginais()
     local n = 0
     for _, a in pairs(aplicados) do
         pcall(function()
             if a.w:IsValid() then
                 a.w:SetText(FText(a.o))
+                if a.mudou and a.tam then MudarFonte(a, a.tam) end
                 n = n + 1
             end
         end)
     end
-    trad, pedidos, nossas, aplicados = {}, {}, {}, {}
+    trad, pedidos, nossas, aplicados, ordem, cursor = {}, {}, {}, {}, {}, 1
     Log("originais devolvidos em " .. n .. " textos")
 end
 
@@ -113,6 +171,15 @@ local function Linha(l)
         pedidos[o] = nil
     elseif tipo == "X" then
         DevolverOriginais()
+    elseif tipo == "C" then
+        local novoEnc = a == "1"
+        encMin = math.max(0.4, math.min(0.95, (tonumber(b) or 60) / 100))
+        if novoEnc ~= encolher then
+            encolher = novoEnc
+            Log("encolher fonte: " .. (encolher and "ligado" or "desligado"))
+            -- aplica (ou desfaz) nos textos ja traduzidos
+            for _, ap in pairs(aplicados) do pcall(function() if ap.w:IsValid() then Encolher(ap) end end) end
+        end
     end
 end
 
@@ -177,7 +244,49 @@ local function Processar(w)
         end
         if okSet then
             local okEnd, endereco = pcall(function() return w:GetAddress() end)
-            if okEnd and endereco then aplicados[endereco] = { w = w, o = txt } end
+            if okEnd and endereco then
+                local a = aplicados[endereco]
+                if not a or a.w ~= w then
+                    if a and a.tam and a.mudou then pcall(MudarFonte, a, a.tam) end
+                    a = { w = w, textblock = Pista(w):sub(1, 10) == "TextBlock " }
+                    if not aplicados[endereco] then ordem[#ordem + 1] = endereco end
+                    aplicados[endereco] = a
+                end
+                a.o, a.t = txt, t
+                Encolher(a)
+            end
+        end
+    end
+end
+
+-- Confere aos poucos os textos que a ponte ja traduziu: se o jogo escreveu o original de novo
+-- (passar o mouse por cima de um botao, por exemplo), troca na hora. No maximo 150 por vez.
+local function Conferir()
+    local n = #ordem
+    if n == 0 then return end
+    local passos = math.min(n, 150)
+    for _ = 1, passos do
+        if cursor > #ordem then cursor = 1 end
+        local endereco = ordem[cursor]
+        local a = aplicados[endereco]
+        local valido = false
+        if a then
+            local ok, txt = pcall(function()
+                if not a.w:IsValid() then return nil end
+                return a.w.Text:ToString()
+            end)
+            if ok and txt ~= nil then
+                valido = true
+                if txt ~= a.t then Processar(a.w) end
+            end
+        end
+        if valido then
+            cursor = cursor + 1
+        else
+            -- widget sumiu: tira da lista (o ultimo vem para o lugar dele)
+            aplicados[endereco] = nil
+            ordem[cursor] = ordem[#ordem]
+            ordem[#ordem] = nil
         end
     end
 end
@@ -231,16 +340,6 @@ end
 
 ---------------- inicio ----------------
 local function Iniciar()
-
-local okGancho = pcall(RegisterHook, "/Script/Engine.PlayerController:ClientRestart", function()
-    if liberadoEm == nil then Log("jogador entrou") end
-    Liberar(ESPERA_INICIO_MS)
-end)
-if not okGancho then Log("sem gancho ClientRestart; espera " .. (ESPERA_MAX_MS / 1000) .. " s") end
-
--- troca de mapa: para de varrer ate o mapa novo terminar de carregar
-pcall(RegisterLoadMapPreHook, function() liberadoEm = nil; inicio = os.clock() end)
-pcall(RegisterLoadMapPostHook, function() Liberar(ESPERA_MAPA_MS) end)
     -- jogo abriu: zera a conversa
     local f = io.open(ARQ_RESPOSTAS, "wb")
     if not f then
@@ -279,11 +378,36 @@ if not okGancho then Log("sem gancho ClientRestart; espera " .. (ESPERA_MAX_MS /
 pcall(RegisterLoadMapPreHook, function() liberadoEm = nil; inicio = os.clock() end)
 pcall(RegisterLoadMapPostHook, function() Liberar(ESPERA_MAPA_MS) end)
 
+-- o jogo trocou o texto de um widget (hover, troca de aba...): traduz no quadro seguinte
+if GANCHO_TEXTO then
+    for _, cls in ipairs(CLASSES) do
+        local ok = pcall(RegisterHook, "/Script/UMG." .. cls .. ":SetText", function(ctx)
+            if liberadoEm == nil then return end
+            local okW, w = pcall(function() return ctx:get() end)
+            if not okW or not w then return end
+            ExecuteInGameThread(function()
+                pcall(function() if PodeVarrer() then Processar(w) end end)
+            end)
+        end)
+        Log("gancho " .. cls .. ":SetText " .. (ok and "ok" or "nao deu"))
+    end
+end
+
 RegisterKeyBind(TECLA_MENU, function()
     ExecuteInGameThread(function()
         Enviar("M")
         pcall(Gravar)
     end)
+end)
+
+LoopAsync(INTERVALO_CONFERIR_MS, function()
+    ExecuteInGameThread(function()
+        if PodeVarrer() then
+            local ok, erro = pcall(Conferir)
+            if not ok then Log("erro conferindo: " .. tostring(erro)) end
+        end
+    end)
+    return false
 end)
 
 LoopAsync(INTERVALO_MS, function()

@@ -13,6 +13,8 @@ internal static class LiveMotor
     // Numero colado em letra latina (Raz3n, v2, MK3) NAO e protegido: faz parte da palavra.
     private static readonly Regex RxProt = new Regex(@"<[^>]+>|\{[^}]*\}|%[sdf]|(?<![A-Za-z0-9_])\d+(?:[.,:]\d+)*(?![A-Za-z0-9_])", RegexOptions.Compiled);
     private static readonly Regex RxTok = new Regex(@"\{(\d+)\}", RegexOptions.Compiled);
+    // separador de varios termos numa linha so ("伏羲脉 · 河洛氏 · 无根浮萍"): cada parte e traduzida sozinha
+    private static readonly Regex RxSep = new Regex(@"\s*[\u00B7\u30FB\u2022\uFF5C]\s*", RegexOptions.Compiled);
 
     private static readonly Dictionary<string, string> memo = new Dictionary<string, string>();
     private static readonly HashSet<string> nossas = new HashSet<string>();
@@ -25,6 +27,8 @@ internal static class LiveMotor
     private static readonly Dictionary<string, int> tentativas = new Dictionary<string, int>();
     // pista de onde o texto apareceu (nome do objeto na tela): ajuda a categorizar no glossario
     private static readonly Dictionary<string, string> pistas = new Dictionary<string, string>();
+    // texto como apareceu no jogo (sem os marcadores {0}): vai como "Visto em" dos termos achados
+    private static readonly Dictionary<string, string> amostras = new Dictionary<string, string>();
     // traducao antiga -> traducao nova (quando o jogador edita um termo no glossario, o texto na tela troca na hora)
     private static readonly Dictionary<string, string> substituicoes = new Dictionary<string, string>();
     // ultimas frases traduzidas (original, traducao): vao como contexto no pedido para a IA
@@ -194,6 +198,7 @@ internal static class LiveMotor
         unitarios.Clear();
         tentativas.Clear();
         pistas.Clear();
+        amostras.Clear();
         substituicoes.Clear();
         recentes.Clear();
         reforcados.Clear();
@@ -273,6 +278,18 @@ internal static class LiveMotor
         if (memo.TryGetValue(s, out r)) return r;
         if (nossas.Contains(s) || ignorados.Contains(s)) return null;
 
+        // varios termos numa linha: cada parte sai do glossario/cache (ou vai para a IA) sozinha, e a linha
+        // e montada de novo. Assim "A · B · C" usa sempre a mesma traducao de A, B e C sozinhos.
+        string comp;
+        if (Composta(s, origem, out comp))
+        {
+            if (comp == null) return null;   // alguma parte ainda esta na fila
+            if (memo.Count > 20000) memo.Clear();
+            memo[s] = comp;
+            Lembrar(nossas, comp);
+            return comp;
+        }
+
         List<string> itens = new List<string>();
         string tpl = Proteger(s, itens);
         if (!Elegivel(s, tpl))
@@ -307,8 +324,45 @@ internal static class LiveMotor
             fila.AddLast(tpl);
             // pista de termos (categoria) e de frases (onde os termos achados dentro delas apareceram)
             if (origem != null && !pistas.ContainsKey(tpl)) pistas[tpl] = Pista(origem);
+            if (!amostras.ContainsKey(tpl)) amostras[tpl] = s;
         }
         return null;
+    }
+
+    // Linha com 2+ partes separadas por "·" (ou ・ • ｜), cada uma um termo curto?
+    // true = e composta; traducao = a linha montada, ou null se alguma parte ainda nao tem traducao.
+    private static bool Composta(string s, string origem, out string traducao)
+    {
+        traducao = null;
+        if (s.Length < 3 || !RxSep.IsMatch(s)) return false;
+        string[] partes = RxSep.Split(s);
+        MatchCollection seps = RxSep.Matches(s);
+        int validas = 0;
+        for (int i = 0; i < partes.Length; i++)
+        {
+            string p = partes[i].Trim();
+            if (p.Length == 0) continue;
+            if (!Glossario.Termo(p)) return false;
+            validas++;
+        }
+        if (validas < 2) return false;
+        StringBuilder sb = new StringBuilder();
+        bool falta = false;
+        for (int i = 0; i < partes.Length; i++)
+        {
+            string p = partes[i];
+            string t = p.Trim().Length == 0 ? p : TraduzirInterno(p.Trim(), origem);
+            if (t == null)
+            {
+                // sem traducao (na fila) ou ignorada (sem letra para traduzir): ignorada fica como esta
+                if (Ignorado(p.Trim())) t = p.Trim();
+                else falta = true;
+            }
+            sb.Append(t);
+            if (i < seps.Count) sb.Append(seps[i].Value);
+        }
+        if (!falta) traducao = sb.ToString();
+        return true;
     }
 
     // caminho do widget (ex.: "WBP_Bag_C /Engine/.../WBP_Bag.Txt_ItemName"), em minusculas.
@@ -606,6 +660,7 @@ internal static class LiveMotor
                 bool provisorio = google && ep == EpReserva;
                 int reFeitos = 0;
                 string[] pistasLote = new string[lote.Count];
+                string[] amostrasLote = new string[lote.Count];
                 for (int i = 0; i < lote.Count; i++)
                 {
                     // modo com chave: a traducao tem que usar os termos travados/confirmados do glossario.
@@ -646,6 +701,8 @@ internal static class LiveMotor
                         pistas.TryGetValue(lote[i], out pista);
                         pistas.Remove(lote[i]);
                         pistasLote[i] = pista;
+                        string amostra;
+                        if (amostras.TryGetValue(lote[i], out amostra)) { amostrasLote[i] = amostra; amostras.Remove(lote[i]); }
                         Glossario.Auto(lote[i], trad[i], pista, catsIA != null ? Categorias.PorNome(catsIA[i]) : -1);
                         LembrarRecente(lote[i], trad[i]);
                         ultimas.Add(new string[] { lote[i], trad[i] });
@@ -656,7 +713,7 @@ internal static class LiveMotor
                     tentativas.Remove(lote[i]);
                     unitarios.Remove(lote[i]);
                 }
-                if (achados != null) GuardarAchados(lote, trad, achados, pistasLote);
+                if (achados != null) GuardarAchados(lote, trad, achados, pistasLote, amostrasLote);
                 if (reFeitos > 0)
                 {
                     Retraduzidos += reFeitos;
@@ -753,7 +810,7 @@ internal static class LiveMotor
 
     // Termos que a IA achou dentro das frases ("g"): so entram se o termo esta mesmo numa frase do lote
     // e a traducao dessa frase usou a traducao que a IA disse.
-    private static void GuardarAchados(List<string> lote, List<string> trad, List<string[]> achados, string[] pistasLote)
+    private static void GuardarAchados(List<string> lote, List<string> trad, List<string[]> achados, string[] pistasLote, string[] amostrasLote)
     {
         for (int k = 0; k < achados.Count; k++)
         {
@@ -764,7 +821,7 @@ internal static class LiveMotor
                 if (lote[i] == o || !Glossario.Aparece(lote[i], o)) continue;
                 if (!Glossario.Usou(trad[i], t)) break;
                 bool novo = !Glossario.Existe(o);
-                Glossario.Visto(o, t, pistasLote[i], Categorias.PorNome(achados[k][2]), lote[i]);
+                Glossario.Visto(o, t, pistasLote[i], Categorias.PorNome(achados[k][2]), amostrasLote[i] ?? lote[i]);
                 if (novo && Glossario.Existe(o))
                 {
                     TermosAchados++;

@@ -240,6 +240,7 @@ internal static class Glossario
     private static string Exemplo(string s)
     {
         if (string.IsNullOrEmpty(s)) return "";
+        s = System.Text.RegularExpressions.Regex.Replace(s, "<[^>]*>|\\{\\d+\\}", "");
         s = s.Replace("\r", " ").Replace("\n", " ").Trim();
         return s.Length > 120 ? s.Substring(0, 119) + "\u2026" : s;
     }
@@ -476,8 +477,11 @@ internal static class Glossario
         }
     }
 
-    // Termos travados ou confirmados que aparecem DENTRO do texto (o texto e maior que o termo):
-    // a traducao tem que usar a forma do glossario (ver LiveMotor, verificacao).
+    // Termos que aparecem DENTRO do texto (o texto e maior que o termo) e que a traducao tem que usar
+    // na forma do glossario (ver LiveMotor, verificacao):
+    //  - travados: sempre;
+    //  - confirmados e novos: so nomes proprios (personagem, lugar, seita, reino, tecnica, pilula, artefato,
+    //    item, titulo). Menu, atributo, missao e "outros" sao palavras comuns que mudam com a frase.
     public static List<TermoGlossario> Obrigatorios(string texto)
     {
         List<TermoGlossario> r = new List<TermoGlossario>();
@@ -485,7 +489,8 @@ internal static class Glossario
         for (int i = 0; i < lista.Count; i++)
         {
             TermoGlossario t = lista[i];
-            if (!(t.Travado || t.Confirmado) || t.Original.Length < 2 || texto.Length <= t.Original.Length) continue;
+            if (t.Original.Length < 2 || texto.Length <= t.Original.Length) continue;
+            if (!t.Travado && !NomeProprio(t.Cat)) continue;
             if (Contem(texto, t.Original)) r.Add(t);
         }
         // termo dentro de outro termo da lista (师兄 dentro de 张师兄): so o maior conta
@@ -497,6 +502,12 @@ internal static class Glossario
                     break;
                 }
         return r;
+    }
+
+    // categorias de nome proprio (o termo tem que sair igual dentro das frases)
+    public static bool NomeProprio(int cat)
+    {
+        return cat != 0 && cat != 9 && cat != 10 && cat != 11;
     }
 
     // A traducao usou o termo? Sem diferenca de maiusculas, e aceitando a palavra flexionada
@@ -556,6 +567,8 @@ internal static class Glossario
             else if (c == '.' || c == '!' || c == '?' || c == ';' || c == ',' ||
                      c == '\u3002' || c == '\uFF01' || c == '\uFF1F' || c == '\uFF0C' || c == '\uFF1B' ||
                      c == '\u3001' || c == '\uFF1A' || c == '\u2026') return false;
+            // separador de varios termos numa linha ("A · B · C"): a linha nao e um termo (ver LiveMotor.Composta)
+            else if (c == '\u00B7' || c == '\u30FB' || c == '\u2022' || c == '\uFF5C') return false;
         }
         // chines/japones/coreano nao tem espaco: frase curta passaria como "termo"; limite proprio
         if (cjk > MaxTermoCJK) return false;

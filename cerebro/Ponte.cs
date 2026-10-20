@@ -6,6 +6,7 @@ using System.Text;
 // Conversa com a ponte (mod Lua do UE4SS) por dois arquivos na pasta "troca":
 //   pedidos.txt   (ponte -> cerebro)  T<TAB>texto<TAB>pista | M (abrir/fechar menu) | I (jogo abriu)
 //   respostas.txt (cerebro -> ponte)  R<TAB>texto<TAB>traducao | N<TAB>texto (nao traduzir) | X (devolver originais)
+//                                     | C<TAB>encolher(0/1)<TAB>minimo% (config da ponte)
 // Cada lado so acrescenta linhas no fim e lembra ate onde ja leu. A ponte zera os dois quando o jogo abre.
 // Texto com \ TAB ou quebra de linha vai escapado (\\ \t \n \r), igual ao cache.
 internal static class Ponte
@@ -32,6 +33,7 @@ internal static class Ponte
     // textos que a ponte pediu e ainda nao tiveram resposta: texto -> pista
     private static readonly Dictionary<string, string> esperando = new Dictionary<string, string>();
     private static bool ativoAntes;
+    private static string cfgEnviada;   // ultima linha C mandada (null = mandar de novo)
 
     public static int Esperando { get { return esperando.Count; } }
     public static int Recebidos;
@@ -64,6 +66,12 @@ internal static class Ponte
         {
             LiveMotor.FimAtualizar();
             saida.Append("X\n");
+        }
+        string cfg = "C\t" + (LiveConfig.Encolher ? "1" : "0") + "\t" + LiveConfig.EncolherMin;
+        if (cfg != cfgEnviada)
+        {
+            cfgEnviada = cfg;
+            saida.Append(cfg).Append('\n');
         }
         if (LiveMotor.VarrerAgora)
         {
@@ -145,6 +153,7 @@ internal static class Ponte
     private static void NovaSessao()
     {
         esperando.Clear();
+        cfgEnviada = null;
         LiveLog.Info("lg_ponte_ok");
     }
 
