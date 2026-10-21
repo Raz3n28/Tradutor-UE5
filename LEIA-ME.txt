@@ -20,17 +20,42 @@ ue4ss\UE4SS.log                 log do UE4SS (linhas [TradutorUE5])
 O tradutor fecha sozinho quando o jogo fecha.
 
 MENU (F8)
-01 Painel      resumo: estado, modo, idioma, glossario, cache, ponte do jogo e as ultimas traducoes
+00 Como usar   tutorial em 9 passos com imagens (abre sozinho na primeira vez)
+01 Painel      resumo: estado, modo, idioma, glossario, cache, ponte, gasto da chave, versao nova e ultimas traducoes
 02 Geral       comecar/pausar, modo gratis ou com chave, idioma de destino, o que traduzir
 03 Provedor    servico de IA, URL, chave e modelo; "Testar conexao"
-04 Estilo      estilo pronto, como a IA traduz, instrucoes extras (com exemplos) e o texto sobre o jogo
-05 Glossario   termos com categoria, nivel (Novo -> Confirmado -> Travado), onde apareceram e conflitos
-06 Categorias  13 categorias de cultivo (Personagem, Lugar, Seita, Reino, Tecnica, Pilula, Artefato, Item,
+04 Estilo      estilo pronto, como a IA traduz, instrucoes extras, o texto sobre o jogo e "Testar o estilo"
+05 Glossario   lista a esquerda e painel do termo a direita (traducao, abreviacao, categoria, travar,
+               sugestoes da IA); botoes Telas apertadas e Pacote xianxia; ajuda no "?"
+06 Falas e descricoes  falas de cada personagem, descricao de cada item e missao: editar, travar, retraduzir
+07 Categorias  13 categorias de cultivo (Personagem, Lugar, Seita, Reino, Tecnica, Pilula, Artefato, Item,
                Atributo, Missao, Menu, Titulo, Outros) + ate 8 suas; palavras-chave e instrucao para a IA
-07 Configuracoes pedidos por minuto, textos por pedido, exportar/importar, limpar cache
-08 Log         o que o tradutor esta fazendo
-09 Interface   tamanho da janela do menu
-Embaixo, a esquerda: idioma do menu (PT EN ES RU FR DE).
+08 Configuracoes  ritmo, tecla F9, pacote de traducao (.zip), relatorio de erro, gasto da chave, backup, cache
+09 Log         o que o tradutor esta fazendo
+10 Interface   tamanho da janela do menu
+Embaixo, a esquerda: Apoie o projeto (Ko-fi e Pix) e o idioma do menu (PT EN ES RU FR DE).
+
+SUGERIR TRADUCOES (modo com chave)
+No Glossario, selecione um ou varios termos e aperte "Sugerir traducoes": a IA da 3 ou 4 opcoes, cada uma
+com o jeito dela (pelo sentido, mantendo o nome em pinyin, mais curta...). "usar" = vira a traducao travada e
+o jogo troca na hora.
+
+FALAS E DESCRICOES
+Conforme voce joga, as falas entram agrupadas por quem fala (e as descricoes pelo item ou missao). Edite e
+"Salvar e travar" (fica mesmo se limpar o cache), "Retraduzir" pede outra versao a IA, "Mover para..." corrige
+o grupo se a ligacao automatica errar. Narracao sem nome fica em Outros.
+
+PACOTE DE TRADUCAO, BACKUP E RELATORIO (Configuracoes)
+- Exportar pacote (.zip): glossario (com abreviacoes), traducoes, falas editadas e telas apertadas. Quem
+  importar joga traduzido sem gastar IA. Importar so acrescenta.
+- Backup: uma copia do glossario por dia (ultimas 7) em dados\backup; "Restaurar este dia" volta uma delas.
+- Gerar relatorio de erro: .zip na Area de Trabalho com os logs do tradutor, do UE4SS e do jogo e o ultimo
+  crash (sem as chaves de API). Nada e enviado sozinho.
+- Gasto da chave: os tokens vem da resposta da IA; coloque o preco do seu modelo para ver o custo estimado.
+
+UM JOGO, UMA PASTA
+Cada jogo tem o seu mod (ue4ss\Mods\TradutorUE5), entao glossario, traducoes, estilo e falas ficam separados
+por jogo. Para levar a traducao de um jogo, use o pacote de traducao.
 
 GLOSSARIO INTELIGENTE (modo com chave)
 - A categoria de cada termo sai do nome do widget no jogo, do fim do termo em chines (丹 pilula, 派 seita,

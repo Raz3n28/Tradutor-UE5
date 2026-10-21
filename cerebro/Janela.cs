@@ -673,6 +673,14 @@ internal sealed partial class Janela : Form
         sub.Margin = new Padding(0, Tema.D(6), Tema.D(10), 0);
         l1.Controls.Add(sub);
         faixa.Controls.Add(l1);
+        // jogo atual (cada jogo tem o seu glossario, cache e estilo: a pasta dados fica dentro do mod de cada jogo)
+        string jogo = Ponte.NomeJogo;
+        if (jogo.Length > 0)
+        {
+            Label lj = Tema.Rotulo("🎮 " + LiveTxt.F("pn_jogo", jogo), Interna, Tema.Fraco, 8.5f);
+            lj.Margin = new Padding(0, Tema.D(8), 0, 0);
+            faixa.Controls.Add(lj);
+        }
         // versao nova no GitHub
         if (Atualizacao.Nova.Length > 0)
         {

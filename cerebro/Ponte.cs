@@ -17,6 +17,22 @@ internal static class Ponte
 {
     public static string PastaMod = AppContext.BaseDirectory;
 
+    // nome do jogo (pasta do projeto): ...\<Projeto>\Binaries\Win64\ue4ss\Mods\TradutorUE5 -> "<Projeto>".
+    // Cada jogo tem o seu mod, entao glossario, cache, estilo e falas (pasta dados) ja ficam separados por jogo.
+    public static string NomeJogo
+    {
+        get
+        {
+            try
+            {
+                DirectoryInfo d = new DirectoryInfo(PastaMod);
+                for (int i = 0; i < 5 && d != null; i++) d = d.Parent;
+                return d != null ? d.Name : "";
+            }
+            catch { return ""; }
+        }
+    }
+
     private static string Troca
     {
         get
