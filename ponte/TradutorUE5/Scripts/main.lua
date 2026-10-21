@@ -82,6 +82,7 @@ local nossas = {}     -- traducao -> original (texto que a ponte colocou na tela
 local aplicados = {}  -- endereco do widget -> { o = original, t = traducao }
 local curtas = {}     -- lugar -> { original -> abreviacao }
 local ehCurta = {}    -- abreviacao -> true (para voltar a traducao inteira quando a tela deixa de ser apertada)
+local mudou = {}      -- original -> true: a traducao mudou (jogador editou/escolheu outra) e a tela troca
 local avisados = {}   -- lugar .. "\1" .. original -> true (cerebro ja sabe que o texto aparece ali)
 local nesta = {}      -- lugar -> quantos textos dele nesta passada
 local maximo = {}     -- lugar -> maior quantidade ja avisada ao cerebro
@@ -123,6 +124,7 @@ local function Linha(l)
     local tipo, a, b = l:match("^([^\t]*)\t?([^\t]*)\t?(.*)$")
     if tipo == "R" then
         local o, t = Desescapar(a), Desescapar(b)
+        if trad[o] and trad[o] ~= t then mudou[o] = true end
         trad[o] = t
         nossas[t] = o
         pedidos[o] = nil
@@ -257,7 +259,7 @@ local function Processar(w, endereco)
             local c = curtas[lugar] and curtas[lugar][o]
             local quer = nil
             if c and txt ~= c then quer = c
-            elseif not c and ehCurta[txt] and txt ~= t then quer = t end
+            elseif not c and (ehCurta[txt] or mudou[o]) and txt ~= t then quer = t end
             if quer and pcall(function() w:SetText(FText(quer)) end) then
                 aplicados[endereco] = { o = o, t = quer }
             end
@@ -329,7 +331,7 @@ local function DevolverOriginais()
             end
         end
     end
-    trad, pedidos, nossas, aplicados, curtas = {}, {}, {}, {}, {}
+    trad, pedidos, nossas, aplicados, curtas, mudou = {}, {}, {}, {}, {}, {}
     Log("originais devolvidos em " .. n .. " textos")
 end
 

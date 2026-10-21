@@ -316,6 +316,21 @@ internal static class Ponte
         if (LiveConfig.TelasCurtas.Contains(lugar)) Abreviador.Pedir(texto);
     }
 
+    // traducao de um termo mudou (jogador editou, escolheu sugestao...): manda de novo para os textos da tela
+    // que sao esse termo (com ou sem marcas de cor); a ponte troca na hora
+    public static void AtualizarTermo(string original, string nova)
+    {
+        if (string.IsNullOrEmpty(original) || string.IsNullOrEmpty(nova)) return;
+        foreach (string b in brutos)
+        {
+            string antes, depois;
+            if (Miolo(b, out antes, out depois).Trim() != original) continue;
+            string r = antes + nova + depois;
+            respondidos[Miolo(b)] = nova;
+            saida.Append("R\t").Append(Escapar(b)).Append('\t').Append(Escapar(r)).Append('\n');
+        }
+    }
+
     // abreviacoes do texto para as telas apertadas
     private static void Curtas(string texto)
     {

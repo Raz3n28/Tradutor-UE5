@@ -111,6 +111,41 @@ internal static class Provedores
         return MontarIA(p, sb.ToString(), Json.ListaTextos(termos), Mathf.Clamp(256 + termos.Count * 16, 512, 4096));
     }
 
+    // sugestoes de traducao (botao "Sugerir traducoes" do glossario). Cada item: "original || traducao atual || categoria".
+    // Resposta: um texto por item, "opcao :: nota || opcao :: nota || ..." (a nota vem no idioma do menu)
+    public static Pedido MontarSugerir(Provedor p, List<string> termos)
+    {
+        string[] linguas = new string[] { "Brazilian Portuguese", "English", "Spanish", "Russian", "French", "German" };
+        string menu = linguas[Mathf.Clamp(LiveTxt.Atual, 0, linguas.Length - 1)];
+        StringBuilder sb = new StringBuilder();
+        sb.Append("You help a player choose translations for names and terms of " + LiveConfig.Jogo + ", into ").Append(LiveConfig.NomeIdiomaIngles()).Append(". ");
+        sb.Append("The user sends a JSON array; each item is \"original || current translation || category\". ");
+        sb.Append("For each item suggest 3 or 4 good translations that differ in approach (for example: by meaning; keeping the Chinese name in pinyin; more natural or shorter; closer to how fans of Chinese donghua and novels say it). ");
+        sb.Append("Do not repeat the current translation. Write numbers as digits. For each option add a very short note (max 4 words) in ").Append(menu).Append(" saying its approach. ");
+        int e = LiveConfig.Estilo;
+        if (e >= 0 && e < LiveConfig.Estilos.Length) sb.Append("The player's style: ").Append(LiveConfig.Estilos[e][1]).Append(" ");
+        string extra = LiveConfig.PromptExtra;
+        if (extra != null && extra.Trim().Length > 0) sb.Append("The player's own instructions (follow them, the first option should match them best): ").Append(extra.Trim()).Append(" ");
+        sb.Append("Reply with ONLY a JSON array of strings, one per input item, same count and order. Each string lists the options as \"translation :: note || translation :: note || translation :: note\".");
+        return MontarIA(p, sb.ToString(), Json.ListaTextos(termos), Mathf.Clamp(256 + termos.Count * 90, 512, 4096));
+    }
+
+    // "opcao :: nota || opcao :: nota" -> [opcao, nota]
+    public static List<string[]> LerSugestoes(string s)
+    {
+        List<string[]> r = new List<string[]>();
+        if (string.IsNullOrEmpty(s)) return r;
+        foreach (string parte in s.Split(new string[] { "||" }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            string[] p = parte.Split(new string[] { "::" }, 2, StringSplitOptions.None);
+            string tr = p[0].Trim();
+            if (tr.Length == 0) continue;
+            r.Add(new string[] { tr, p.Length > 1 ? p[1].Trim() : "" });
+            if (r.Count >= 5) break;
+        }
+        return r;
+    }
+
     // lista de categorias da resposta (null se o formato ou a quantidade nao bater)
     public static List<string> InterpretarLista(Provedor p, string corpo, int esperado)
     {

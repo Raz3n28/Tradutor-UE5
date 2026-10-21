@@ -13,16 +13,17 @@ using DColor = System.Drawing.Color;
 //
 // Tudo e montado no codigo. Trocar o idioma do menu ou a escala (aba Interface) monta a janela de novo.
 // Cada aba e montada quando aberta; "atualizarAba" refaz so os numeros que mudam (status, contadores).
-internal sealed class Janela : Form
+internal sealed partial class Janela : Form
 {
     private const int MaxExtras = 300;
 
-    // abas: 0 Painel, 1 Geral, 2 Provedor, 3 Estilo, 4 Glossario, 5 Categorias, 6 Avancado, 7 Log, 8 Interface
+    // abas: 0 Como usar, 1 Painel, 2 Geral, 3 Provedor, 4 Estilo, 5 Glossario, 6 Falas e descricoes, 7 Categorias,
+    // 8 Configuracoes, 9 Log, 10 Interface (o numero na tela e o indice: 00..10)
     private static readonly string[] NomesAbas = new string[]
     {
-        "nav_painel", "nav_geral", "nav_prov", "nav_estilo", "nav_glos", "nav_cats", "nav_avanc", "nav_log", "nav_interface"
+        "nav_tutorial", "nav_painel", "nav_geral", "nav_prov", "nav_estilo", "nav_glos", "nav_falas", "nav_cats", "nav_avanc", "nav_log", "nav_interface"
     };
-    private const int AbaPainel = 0, AbaGeral = 1, AbaProv = 2, AbaEstilo = 3, AbaGlos = 4, AbaCats = 5, AbaAvanc = 6, AbaLog = 7, AbaInterface = 8;
+    private const int AbaTutorial = 0, AbaPainel = 1, AbaGeral = 2, AbaProv = 3, AbaEstilo = 4, AbaGlos = 5, AbaFalas = 6, AbaCats = 7, AbaAvanc = 8, AbaLog = 9, AbaInterface = 10;
 
     private readonly Timer relogio = new Timer();
     private readonly NotifyIcon bandeja = new NotifyIcon();
@@ -100,8 +101,8 @@ internal sealed class Janela : Form
         Controls.Clear();
         botoesAbas.Clear();
         Font = Tema.F(9f);
-        MinimumSize = new Size(Tema.D(860), Tema.D(560));
-        if (primeira || ClientSize.Width < MinimumSize.Width) ClientSize = new Size(Tema.D(1040), Tema.D(700));
+        MinimumSize = new Size(Tema.D(860), Tema.D(600));
+        if (primeira || ClientSize.Width < MinimumSize.Width) ClientSize = new Size(Tema.D(1100), Tema.D(780));
 
         ContextMenuStrip menu = new ContextMenuStrip();
         menu.Items.Add(LiveTxt.T("abrir_menu"), null, delegate { Alternar(true); });
@@ -136,7 +137,7 @@ internal sealed class Janela : Form
     private Panel MontarLateral()
     {
         int w = Tema.D(210);
-        Panel p = new Panel { Dock = DockStyle.Left, Width = w, BackColor = Tema.Lateral };
+        Panel p = new PainelLiso { Dock = DockStyle.Left, Width = w, BackColor = Tema.Lateral };
         int x = Tema.D(16), y = Tema.D(16), iw = w - Tema.D(32);
 
         Label marca = new Label { Text = "Universal\nTranslator", AutoSize = true, Font = Tema.F(15f, true), ForeColor = Tema.Destaque, Location = new Point(x, y) };
@@ -163,10 +164,10 @@ internal sealed class Janela : Form
             int idx = i;
             Button b = new Button
             {
-                Text = "  " + (i + 1).ToString("00") + "    " + LiveTxt.T(NomesAbas[i]),
+                Text = "  " + i.ToString("00") + "    " + LiveTxt.T(NomesAbas[i]),
                 TextAlign = ContentAlignment.MiddleLeft,
                 Width = iw,
-                Height = Tema.D(32),
+                Height = Tema.D(30),
                 Location = new Point(x, y),
                 Font = Tema.F(9.5f)
             };
@@ -200,9 +201,28 @@ internal sealed class Janela : Form
             idiomas.Controls.Add(b);
         }
         idiomas.Anchor = AnchorStyles.Left | AnchorStyles.Bottom;
+        idiomas.BackColor = DColor.Transparent;
         p.Controls.Add(idiomas);
-        p.Resize += delegate { idiomas.Location = new Point(x, Math.Max(y + Tema.D(10), p.Height - idiomas.Height - Tema.D(14))); };
-        idiomas.Location = new Point(x, Math.Max(y + Tema.D(10), Tema.D(700) - idiomas.Height - Tema.D(14)));
+        // card de apoio (Ko-fi / Pix) logo acima do idioma; some se a janela for baixa demais
+        Panel apoio = MontarApoio(iw);
+        p.Controls.Add(apoio);
+        int fimAbas = y;
+        Action posicionar = delegate
+        {
+            int yi = Math.Max(fimAbas + Tema.D(10), p.Height - idiomas.Height - Tema.D(14));
+            idiomas.Location = new Point(x, yi);
+            int ya = yi - apoio.Height - Tema.D(12);
+            apoio.Location = new Point(x, ya);
+            apoio.Visible = ya >= fimAbas + Tema.D(8);
+        };
+        p.Resize += delegate { posicionar(); };
+        posicionar();
+        // montanhas em tinta no pe do menu
+        p.Paint += delegate (object s, PaintEventArgs e)
+        {
+            Image m = Tema.Imagem("montanhas.png");
+            if (m != null) e.Graphics.DrawImage(m, 0, p.Height - Tema.D(240), w, Tema.D(240));
+        };
         return p;
     }
 
@@ -232,11 +252,11 @@ internal sealed class Janela : Form
         // largura util: a do corpo menos a barra de rolagem
         L = Math.Max(Tema.D(480), corpo.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - Tema.D(24));
 
-        if (aba == AbaGlos || aba == AbaLog)
+        if (aba == AbaGlos || aba == AbaLog || aba == AbaFalas)
         {
             // abas "cheias": a tabela/o log ocupam a altura toda (rolagem propria)
             corpo.AutoScroll = false;
-            Control c = aba == AbaGlos ? PaginaGlossario() : PaginaLog();
+            Control c = aba == AbaGlos ? PaginaGlossario() : aba == AbaFalas ? PaginaFalas() : PaginaLog();
             c.Dock = DockStyle.Fill;
             corpo.Controls.Add(c);
         }
@@ -253,6 +273,7 @@ internal sealed class Janela : Form
             };
             switch (aba)
             {
+                case AbaTutorial: PaginaTutorial(); break;
                 case AbaPainel: PaginaPainel(); break;
                 case AbaGeral: PaginaGeral(); break;
                 case AbaProv: PaginaProvedor(); break;
@@ -286,7 +307,7 @@ internal sealed class Janela : Form
     {
         if (corpo == null || corpo.ClientSize.Width == ultimaLargura) return;
         ultimaLargura = corpo.ClientSize.Width;
-        if (aba != AbaGlos && aba != AbaLog) MostrarAba(aba);
+        if (aba != AbaGlos && aba != AbaLog && aba != AbaFalas) MostrarAba(aba);
         else if (aba == AbaGlos) AjustarGlossario();
     }
 
@@ -294,7 +315,6 @@ internal sealed class Janela : Form
     private void AjustarGlossario()
     {
         int w = Math.Max(Tema.D(480), corpo.ClientSize.Width - Tema.D(8));
-        larguraDet = w - Tema.D(24);
         for (int i = 0; i < larguraGlos.Count; i++)
         {
             Control c = larguraGlos[i].Key;
@@ -1178,60 +1198,86 @@ internal sealed class Janela : Form
     }
 
     // ---------------- 05 Glossario ----------------
+    // Lista a esquerda (original em dourado, traducao, abreviacao, categoria colorida, icone de trava/pacote/conflito)
+    // e painel do termo a direita (tudo editavel num lugar so, sugestoes da IA com 1 clique). Ajuda no botao "?".
 
     private DataGridView grade;
-    private Label glosInfo, glosContagem;
-    private Button btnUsarNova, btnManter;
-    private FlowLayoutPanel glosTelas;
+    private Label glosContagem;
     private Label glosAbrStatus;
-    private int larguraDet;
     // controles do glossario que acompanham a largura da janela (controle, quanto tirar da largura)
     private readonly List<KeyValuePair<Control, int>> larguraGlos = new List<KeyValuePair<Control, int>>();
     private FlowLayoutPanel filtros;
     private int versaoGrade = -1;
     private readonly List<TermoGlossario> filtrado = new List<TermoGlossario>();
     private bool preenchendo;
+    // painel do termo
+    private FlowLayoutPanel det;
+    private Label detOrig, detNivel, detExemplo, detOnde, detAjuda, detSugTitulo, detConflitoTxt;
+    private TextBox detTrad, detCurta;
+    private ComboBox detCat;
+    private Button detTrava;
+    private FlowLayoutPanel detConflito, detSug, detLinhaCat, detAcoes;
+    private TermoGlossario detTermo;
+    private bool detPreenchendo;
+    // sugestoes da IA por termo (nesta sessao): original -> [traducao, nota]
+    private readonly Dictionary<string, List<string[]>> sugestoes = new Dictionary<string, List<string[]>>();
+    private bool sugerindo;
+    private string sugStatus = "";
+    private bool sugErro;
 
     private Control PaginaGlossario()
     {
-        TableLayoutPanel t = new TableLayoutPanel { ColumnCount = 1, RowCount = 5, BackColor = Tema.Conteudo, Padding = new Padding(0, 0, Tema.D(4), 0) };
+        TableLayoutPanel t = new TableLayoutPanel { ColumnCount = 1, RowCount = 4, BackColor = Tema.Conteudo, Padding = new Padding(0, 0, Tema.D(4), 0) };
+        Tema.Papel(t);
         t.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         t.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         t.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
         t.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        t.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         int w = Math.Max(Tema.D(480), corpo.ClientSize.Width - Tema.D(8));
 
-        // busca + novo termo
+        // busca + botoes numa linha so
         FlowLayoutPanel topo = Tema.Linha(w);
-        Label lb = Tema.Rotulo(LiveTxt.T("glos_buscar"), Tema.D(80), Tema.Fraco, 9f);
-        lb.Margin = new Padding(0, Tema.D(6), Tema.D(6), 0);
-        topo.Controls.Add(lb);
-        TextBox tb = Tema.Campo(busca, Tema.D(300));
+        // a busca fica com o que sobra da linha (os 3 botoes ocupam ~540)
+        TextBox tb = Tema.Campo(busca, Math.Max(Tema.D(160), Math.Min(Tema.D(380), w - Tema.D(590))));
+        tb.Margin = new Padding(0, Tema.D(2), Tema.D(10), Tema.D(6));
+        Label lupa = Tema.Rotulo("🔍", Tema.D(24), Tema.Fraco, 10f);
+        lupa.Margin = new Padding(0, Tema.D(4), Tema.D(2), 0);
+        topo.Controls.Add(lupa);
         // espera parar de digitar (~250 ms) antes de filtrar: redesenhar a tabela grande a cada tecla trava a digitacao
         Timer espera = new Timer { Interval = 250 };
         espera.Tick += delegate { espera.Stop(); if (!grade.IsDisposed) { versaoGrade = -1; PreencherGrade(); } };
         tb.TextChanged += delegate { busca = tb.Text; espera.Stop(); espera.Start(); };
         tb.Disposed += delegate { espera.Dispose(); };
         topo.Controls.Add(tb);
-        topo.Controls.Add(Tema.Botao(LiveTxt.T("glos_novo"), Tema.D(150), Tema.D(28), 1, delegate { NovoTermo(); }));
-        topo.Controls.Add(Tema.Botao(LiveTxt.T("abr_telas_bt"), Tema.D(170), Tema.D(28), 0, delegate { Telas(); }));
-        topo.Controls.Add(Tema.Botao(LiveTxt.T("pac_bt"), Tema.D(170), Tema.D(28), 0, delegate { Pacote(); }));
+        topo.Controls.Add(Tema.Botao("＋ " + LiveTxt.T("glos_novo").TrimStart('+', ' '), Tema.D(150), Tema.D(30), 1, delegate { NovoTermo(); }));
+        topo.Controls.Add(Tema.Botao("▦ " + LiveTxt.T("abr_telas_bt"), Tema.D(180), Tema.D(30), 0, delegate { Telas(); }));
+        Button pac = Tema.Botao("📜 " + LiveTxt.T("pac_bt"), Tema.D(170), Tema.D(30), 0, delegate { Pacote(); });
+        pac.BackColor = Tema.Rgb(0x2A, 0x23, 0x12);
+        pac.ForeColor = Tema.Dourado;
+        pac.FlatAppearance.BorderColor = Tema.Rgb(0x5B, 0x4A, 0x22);
+        topo.Controls.Add(pac);
         t.Controls.Add(topo);
         larguraGlos.Clear();
         larguraGlos.Add(new KeyValuePair<Control, int>(topo, 0));
 
-        // filtros: Todos, Conflitos, Novos, Travados e as categorias (com contagem)
+        // filtros em "pilulas": Todos, Conflitos, Novos, Travados e as categorias (com contagem)
         filtros = Tema.Linha(w);
         larguraGlos.Add(new KeyValuePair<Control, int>(filtros, 0));
         t.Controls.Add(filtros);
+
+        // lista | painel do termo
+        TableLayoutPanel meio = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = DColor.Transparent, Margin = new Padding(0, Tema.D(4), 0, 0) };
+        meio.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58f));
+        meio.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42f));
+        meio.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
         grade = new DataGridView
         {
             Dock = DockStyle.Fill,
             BackgroundColor = Tema.Cartao,
-            BorderStyle = BorderStyle.None,
-            GridColor = Tema.Borda,
+            BorderStyle = BorderStyle.FixedSingle,
+            GridColor = Tema.Rgb(0x1D, 0x27, 0x2F),
+            CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
             RowHeadersVisible = false,
             AllowUserToAddRows = false,
             AllowUserToDeleteRows = false,
@@ -1240,31 +1286,38 @@ internal sealed class Janela : Form
             MultiSelect = true,
             EnableHeadersVisualStyles = false,
             ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing,
-            ColumnHeadersHeight = Tema.D(30),
+            ColumnHeadersHeight = Tema.D(32),
             AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
             EditMode = DataGridViewEditMode.EditOnKeystrokeOrF2,
-            Font = Tema.F(9f)
+            Font = Tema.F(9.5f),
+            Margin = new Padding(0, 0, Tema.D(10), 0)
         };
-        grade.RowTemplate.Height = Tema.D(26);
-        grade.ColumnHeadersDefaultCellStyle.BackColor = Tema.CartaoClaro;
+        grade.RowTemplate.Height = Tema.D(32);
+        grade.ColumnHeadersDefaultCellStyle.BackColor = Tema.Rgb(0x18, 0x21, 0x29);
         grade.ColumnHeadersDefaultCellStyle.ForeColor = Tema.Fraco;
-        grade.ColumnHeadersDefaultCellStyle.Font = Tema.F(8.5f, true);
-        grade.ColumnHeadersDefaultCellStyle.SelectionBackColor = Tema.CartaoClaro;
+        grade.ColumnHeadersDefaultCellStyle.Font = Tema.F(8f, true);
+        grade.ColumnHeadersDefaultCellStyle.SelectionBackColor = Tema.Rgb(0x18, 0x21, 0x29);
+        grade.ColumnHeadersDefaultCellStyle.Padding = new Padding(Tema.D(6), 0, 0, 0);
         grade.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None;
         grade.DefaultCellStyle.BackColor = Tema.Cartao;
         grade.DefaultCellStyle.ForeColor = Tema.Texto;
         grade.DefaultCellStyle.SelectionBackColor = Tema.DestaqueEscuro;
         grade.DefaultCellStyle.SelectionForeColor = Tema.Texto;
-        grade.AlternatingRowsDefaultCellStyle.BackColor = Tema.Rgb(0x1F, 0x26, 0x2E);
+        grade.DefaultCellStyle.Padding = new Padding(Tema.D(6), 0, 0, 0);
+        grade.AlternatingRowsDefaultCellStyle.BackColor = Tema.Rgb(0x19, 0x20, 0x27);
 
-        grade.Columns.Add(new DataGridViewTextBoxColumn { Name = "orig", HeaderText = LiveTxt.T("col_orig"), ReadOnly = true, FillWeight = 22 });
-        grade.Columns.Add(new DataGridViewTextBoxColumn { Name = "trad", HeaderText = LiveTxt.T("col_trad") + " ✎", FillWeight = 26 });
-        grade.Columns.Add(new DataGridViewTextBoxColumn { Name = "curta", HeaderText = LiveTxt.T("col_curta") + " ✎", FillWeight = 11 });
+        DataGridViewTextBoxColumn co = new DataGridViewTextBoxColumn { Name = "orig", HeaderText = LiveTxt.T("col_orig"), ReadOnly = true, FillWeight = 24 };
+        co.DefaultCellStyle.ForeColor = Tema.Dourado;
+        co.DefaultCellStyle.SelectionForeColor = Tema.Dourado;
+        co.DefaultCellStyle.Font = Tema.F(10.5f);
+        grade.Columns.Add(co);
+        grade.Columns.Add(new DataGridViewTextBoxColumn { Name = "trad", HeaderText = LiveTxt.T("col_trad") + " ✎", FillWeight = 34 });
+        grade.Columns.Add(new DataGridViewTextBoxColumn { Name = "curta", HeaderText = LiveTxt.T("col_curta") + " ✎", FillWeight = 14 });
         DataGridViewComboBoxColumn cc = new DataGridViewComboBoxColumn
         {
             Name = "cat",
             HeaderText = LiveTxt.T("col_cat"),
-            FillWeight = 14,
+            FillWeight = 18,
             FlatStyle = FlatStyle.Flat,
             DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing
         };
@@ -1273,13 +1326,14 @@ internal sealed class Janela : Form
         cc.DefaultCellStyle.BackColor = Tema.Cartao;
         cc.DefaultCellStyle.ForeColor = Tema.Texto;
         grade.Columns.Add(cc);
-        grade.Columns.Add(new DataGridViewTextBoxColumn { Name = "nivel", HeaderText = LiveTxt.T("col_nivel"), ReadOnly = true, FillWeight = 16 });
-        grade.Columns.Add(new DataGridViewCheckBoxColumn { Name = "trava", HeaderText = LiveTxt.T("col_trava"), FillWeight = 7 });
+        DataGridViewTextBoxColumn ci = new DataGridViewTextBoxColumn { Name = "ic", HeaderText = "", ReadOnly = true, FillWeight = 6 };
+        ci.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+        grade.Columns.Add(ci);
 
         grade.CellValueChanged += GradeMudou;
         grade.CurrentCellDirtyStateChanged += delegate
         {
-            // combo e checkbox: grava na hora (sem precisar sair da celula)
+            // combo: grava na hora (sem precisar sair da celula)
             if (grade.IsCurrentCellDirty && !(grade.CurrentCell is DataGridViewTextBoxCell)) grade.CommitEdit(DataGridViewDataErrorContexts.Commit);
         };
         grade.DataError += delegate (object s, DataGridViewDataErrorEventArgs e) { e.ThrowException = false; };
@@ -1289,50 +1343,163 @@ internal sealed class Janela : Form
         {
             if (e.KeyCode == Keys.Delete && !grade.IsCurrentCellInEditMode) { ApagarSelecionados(); e.Handled = true; }
         };
-        t.Controls.Add(grade);
+        meio.Controls.Add(grade, 0, 0);
+        meio.Controls.Add(MontarDetalhe(), 1, 0);
+        t.Controls.Add(meio);
 
-        // detalhes do termo selecionado (frase de exemplo, conflito)
-        FlowLayoutPanel det = Tema.Linha(w);
-        det.BackColor = Tema.Cartao;
-        det.Padding = new Padding(Tema.D(10), Tema.D(6), Tema.D(10), Tema.D(4));
-        det.Margin = new Padding(0, Tema.D(6), 0, 0);
-        glosInfo = Tema.Rotulo("", w - Tema.D(24), Tema.Texto, 9f);
-        det.Controls.Add(glosInfo);
-        // telas onde o termo apareceu: marcar = tela apertada (usa a abreviacao)
-        larguraDet = w - Tema.D(24);
-        glosTelas = Tema.Linha(larguraDet);
-        det.Controls.Add(glosTelas);
-        // ajuda dos botoes de abreviar
-        Label ajuda = Tema.Rotulo(LiveTxt.T("abr_ajuda"), larguraDet, Tema.Fraco, 8.5f);
-        det.Controls.Add(ajuda);
-        FlowLayoutPanel acoes = Tema.Linha(w - Tema.D(24));
-        btnUsarNova = Tema.Botao(LiveTxt.T("glos_usar_nova"), Tema.D(200), Tema.D(28), 1, delegate { ResolverSelecionado(true); });
-        btnManter = Tema.Botao(LiveTxt.T("glos_manter"), Tema.D(200), Tema.D(28), 0, delegate { ResolverSelecionado(false); });
-        acoes.Controls.Add(btnUsarNova);
-        acoes.Controls.Add(btnManter);
-        acoes.Controls.Add(Tema.Botao(LiveTxt.T("glos_apagar_sel"), Tema.D(180), Tema.D(28), 3, delegate { ApagarSelecionados(); }));
-        // lado a lado: seleciona a lista filtrada inteira e abrevia + mostra no jogo
-        acoes.Controls.Add(Tema.Botao(LiveTxt.T("abr_sel_tudo"), Tema.D(150), Tema.D(28), 0, delegate { grade.SelectAll(); }));
-        acoes.Controls.Add(Tema.Botao(LiveTxt.T("abr_mostrar"), Tema.D(190), Tema.D(28), 1, delegate { AbreviarEMostrar(); }));
-        glosAbrStatus = Tema.Rotulo("", larguraDet, Tema.Fraco, 8.5f);
-        acoes.Controls.Add(glosAbrStatus);
-        det.Controls.Add(acoes);
-        t.Controls.Add(det);
-        larguraGlos.Add(new KeyValuePair<Control, int>(det, 0));
-        larguraGlos.Add(new KeyValuePair<Control, int>(glosInfo, Tema.D(24)));
-        larguraGlos.Add(new KeyValuePair<Control, int>(glosTelas, Tema.D(24)));
-        larguraGlos.Add(new KeyValuePair<Control, int>(ajuda, Tema.D(24)));
-        larguraGlos.Add(new KeyValuePair<Control, int>(acoes, Tema.D(24)));
-
-        glosContagem = Tema.Rotulo("", w, Tema.Fraco, 8.5f);
-        glosContagem.Margin = new Padding(0, Tema.D(6), 0, 0);
-        t.Controls.Add(glosContagem);
-        larguraGlos.Add(new KeyValuePair<Control, int>(glosContagem, 0));
+        // rodape: selecionar tudo + contagem
+        FlowLayoutPanel rod = Tema.Linha(w);
+        rod.Margin = new Padding(0, Tema.D(6), 0, 0);
+        rod.Controls.Add(Tema.Botao("☑ " + LiveTxt.T("abr_sel_tudo"), Tema.D(150), Tema.D(26), 0, delegate { grade.SelectAll(); }));
+        glosContagem = Tema.Rotulo("", w - Tema.D(170), Tema.Fraco, 8.5f);
+        glosContagem.Margin = new Padding(Tema.D(6), Tema.D(5), 0, 0);
+        rod.Controls.Add(glosContagem);
+        t.Controls.Add(rod);
+        larguraGlos.Add(new KeyValuePair<Control, int>(rod, 0));
+        larguraGlos.Add(new KeyValuePair<Control, int>(glosContagem, Tema.D(170)));
 
         versaoGrade = -1;
         PreencherGrade();
-        atualizarAba = delegate { if (versaoGrade != Glossario.Versao && !grade.IsCurrentCellInEditMode) PreencherGrade(); };
+        atualizarAba = delegate
+        {
+            if (versaoGrade != Glossario.Versao && !grade.IsCurrentCellInEditMode) PreencherGrade();
+            else AtualizarStatusDetalhe();
+        };
         return t;
+    }
+
+    // painel do termo (direita): original grande, campos, nivel/trava, conflito, sugestoes, onde aparece, acoes
+    private Control MontarDetalhe()
+    {
+        Panel caixa = new PainelLiso { Dock = DockStyle.Fill, BackColor = Tema.Rgb(0x17, 0x1F, 0x26), Margin = new Padding(0), AutoScroll = true, Padding = new Padding(Tema.D(16), Tema.D(12), Tema.D(14), Tema.D(10)) };
+        caixa.Paint += delegate (object s, PaintEventArgs e)
+        {
+            using (Pen p = new Pen(Tema.Rgb(0x2A, 0x36, 0x40))) e.Graphics.DrawRectangle(p, 0, 0, caixa.Width - 1, caixa.Height - 1);
+            // brilho jade no canto
+            using (System.Drawing.Drawing2D.GraphicsPath gp = new System.Drawing.Drawing2D.GraphicsPath())
+            {
+                int r = Tema.D(200);
+                gp.AddEllipse(caixa.Width - r / 2 - Tema.D(10), -r / 2, r, r);
+                using (System.Drawing.Drawing2D.PathGradientBrush b = new System.Drawing.Drawing2D.PathGradientBrush(gp))
+                {
+                    b.CenterColor = DColor.FromArgb(34, 45, 212, 191);
+                    b.SurroundColors = new DColor[] { DColor.FromArgb(0, 45, 212, 191) };
+                    e.Graphics.FillPath(b, gp);
+                }
+            }
+        };
+        det = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoSize = true, BackColor = DColor.Transparent, Location = new Point(Tema.D(16), Tema.D(12)) };
+        caixa.Controls.Add(det);
+
+        detOrig = Tema.Rotulo("", Tema.D(300), Tema.Dourado, 20f);
+        det.Controls.Add(detOrig);
+
+        det.Controls.Add(Rotulinho(LiveTxt.T("col_trad")));
+        detTrad = Tema.Campo("", Tema.D(300));
+        detTrad.Font = Tema.F(11f);
+        detTrad.KeyDown += delegate (object s, KeyEventArgs e) { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; SalvarDetTrad(); } };
+        detTrad.Leave += delegate { SalvarDetTrad(); };
+        det.Controls.Add(detTrad);
+
+        det.Controls.Add(Rotulinho(LiveTxt.T("col_curta").TrimEnd('.') + " (" + LiveTxt.T("det_curta_dica") + ")"));
+        detCurta = Tema.Campo("", Tema.D(300));
+        detCurta.KeyDown += delegate (object s, KeyEventArgs e) { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; SalvarDetCurta(); } };
+        detCurta.Leave += delegate { SalvarDetCurta(); };
+        det.Controls.Add(detCurta);
+
+        det.Controls.Add(Rotulinho(LiveTxt.T("col_cat") + " · " + LiveTxt.T("col_nivel")));
+        detLinhaCat = Tema.Linha(Tema.D(300));
+        detCat = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = Tema.D(150), BackColor = Tema.CorCampo, ForeColor = Tema.Texto, FlatStyle = FlatStyle.Flat, Font = Tema.F(9.5f), Margin = new Padding(0, 0, Tema.D(8), Tema.D(6)) };
+        int[] ordem = Categorias.Ordem();
+        for (int i = 0; i < ordem.Length; i++) detCat.Items.Add(Categorias.Nome(ordem[i]));
+        detCat.SelectedIndexChanged += delegate
+        {
+            if (detPreenchendo || detTermo == null || detCat.SelectedIndex < 0) return;
+            int c = ordem[detCat.SelectedIndex];
+            if (c == detTermo.Cat) return;
+            detTermo.Cat = c;
+            detTermo.Travado = true;    // escolher a categoria na mao trava (Reclassificar nao desfaz)
+            Glossario.Marcar();
+        };
+        detLinhaCat.Controls.Add(detCat);
+        detNivel = Tema.Rotulo("", Tema.D(120), Tema.Texto, 9f);
+        detNivel.Margin = new Padding(0, Tema.D(6), Tema.D(6), 0);
+        detLinhaCat.Controls.Add(detNivel);
+        detTrava = Tema.Botao("", Tema.D(110), Tema.D(28), 0, delegate
+        {
+            if (detTermo == null) return;
+            detTermo.Travado = !detTermo.Travado;
+            Glossario.Marcar();
+        });
+        detLinhaCat.Controls.Add(detTrava);
+        det.Controls.Add(detLinhaCat);
+
+        // conflito: a IA deu outra traducao
+        detConflito = Tema.Linha(Tema.D(300));
+        detConflito.BackColor = Tema.Rgb(0x2E, 0x26, 0x10);
+        detConflito.Padding = new Padding(Tema.D(8));
+        detConflitoTxt = Tema.Rotulo("", Tema.D(280), Tema.Aviso, 9f);
+        detConflito.Controls.Add(detConflitoTxt);
+        detConflito.Controls.Add(Tema.Botao(LiveTxt.T("glos_usar_nova"), Tema.D(150), Tema.D(26), 1, delegate { ResolverSelecionado(true); }));
+        detConflito.Controls.Add(Tema.Botao(LiveTxt.T("glos_manter"), Tema.D(150), Tema.D(26), 0, delegate { ResolverSelecionado(false); }));
+        det.Controls.Add(detConflito);
+
+        detExemplo = Tema.Rotulo("", Tema.D(300), Tema.Fraco, 8.5f);
+        det.Controls.Add(detExemplo);
+
+        // sugestoes da IA
+        detSugTitulo = Rotulinho(LiveTxt.T("sug_titulo"));
+        det.Controls.Add(detSugTitulo);
+        detSug = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoSize = true, BackColor = Tema.Rgb(0x10, 0x16, 0x1B), Padding = new Padding(Tema.D(8), Tema.D(4), Tema.D(8), Tema.D(4)), Margin = new Padding(0, 0, 0, Tema.D(8)) };
+        det.Controls.Add(detSug);
+
+        detOnde = Tema.Rotulo("", Tema.D(300), Tema.Fraco, 8.5f);
+        detOnde.Margin = new Padding(0, Tema.D(2), 0, Tema.D(8));
+        det.Controls.Add(detOnde);
+
+        detAcoes = Tema.Linha(Tema.D(300));
+        detAcoes.Controls.Add(Tema.Botao("✨ " + LiveTxt.T("sug_bt"), Tema.D(190), Tema.D(30), 1, delegate { Sugerir(); }));
+        detAcoes.Controls.Add(Tema.Botao("✂ " + LiveTxt.T("abr_mostrar"), Tema.D(190), Tema.D(30), 0, delegate { AbreviarEMostrar(); }));
+        detAcoes.Controls.Add(Tema.Botao("🗑 " + LiveTxt.T("glos_apagar_sel"), Tema.D(170), Tema.D(30), 3, delegate { ApagarSelecionados(); }));
+        Button ajudaBt = Tema.Botao("?", Tema.D(30), Tema.D(30), 0, delegate { detAjuda.Visible = !detAjuda.Visible; });
+        ajudaBt.Font = Tema.F(10f, true);
+        detAcoes.Controls.Add(ajudaBt);
+        det.Controls.Add(detAcoes);
+        glosAbrStatus = Tema.Rotulo("", Tema.D(300), Tema.Ok, 8.5f);
+        det.Controls.Add(glosAbrStatus);
+        detAjuda = Tema.Rotulo(LiveTxt.T("abr_ajuda") + "\n\n" + LiveTxt.T("glos_nota2") + "\n\n" + LiveTxt.T("sug_ajuda"), Tema.D(300), Tema.Fraco, 8.5f);
+        detAjuda.Visible = false;
+        det.Controls.Add(detAjuda);
+
+        // sempre desconta a barra vertical: assim nunca aparece a horizontal
+        caixa.Resize += delegate { AjustarDetalhe(caixa.Width - Tema.D(36) - SystemInformation.VerticalScrollBarWidth); };
+        AjustarDetalhe(Tema.D(380));
+        return caixa;
+    }
+
+    private Label Rotulinho(string texto)
+    {
+        Label l = Tema.Rotulo(texto.ToUpperInvariant(), Tema.D(300), Tema.Fraco, 7.5f, true);
+        l.Margin = new Padding(0, Tema.D(8), 0, Tema.D(3));
+        return l;
+    }
+
+    // largura do painel do termo mudou: campos e textos acompanham
+    private void AjustarDetalhe(int w)
+    {
+        if (det == null || w < Tema.D(200)) return;
+        det.SuspendLayout();
+        foreach (Control c in det.Controls)
+        {
+            if (c is Label) c.MaximumSize = new Size(w, 0);
+            else if (c is TextBox) c.Width = w;
+            else if (c is FlowLayoutPanel && c != detSug) { c.MaximumSize = new Size(w, 0); c.MinimumSize = new Size(w, 0); }
+        }
+        detSug.MinimumSize = new Size(w, 0);
+        detSug.MaximumSize = new Size(w, 0);
+        foreach (Control c in detSug.Controls) { c.MaximumSize = new Size(w - Tema.D(16), 0); c.MinimumSize = new Size(w - Tema.D(16), 0); }
+        detConflitoTxt.MaximumSize = new Size(w - Tema.D(16), 0);
+        det.ResumeLayout(true);
     }
 
     private void MontarFiltros()
@@ -1354,27 +1521,35 @@ internal sealed class Janela : Form
         }
         filtros.SuspendLayout();
         filtros.Controls.Clear();
-        AddFiltro(FiltroTodos, LiveTxt.T("todos") + " " + total, Tema.Destaque);
-        if (conflitos > 0 || filtroGlos == FiltroConflitos) AddFiltro(FiltroConflitos, LiveTxt.T("glos_conflitos") + " " + conflitos, Tema.Aviso);
-        AddFiltro(FiltroNovos, LiveTxt.T("nivel_novo") + " " + novos, Tema.Fraco);
-        AddFiltro(FiltroTravados, LiveTxt.T("nivel_travado") + " " + travados, Tema.Fraco);
+        AddFiltro(FiltroTodos, LiveTxt.T("todos"), total, Tema.Texto);
+        if (conflitos > 0 || filtroGlos == FiltroConflitos) AddFiltro(FiltroConflitos, "⚠ " + LiveTxt.T("glos_conflitos"), conflitos, Tema.Aviso);
+        AddFiltro(FiltroNovos, LiveTxt.T("nivel_novo"), novos, Tema.Texto);
+        AddFiltro(FiltroTravados, "🔒 " + LiveTxt.T("nivel_travado"), travados, Tema.Texto);
         for (int i = 0; i < ordem.Length; i++)
-            AddFiltro(ordem[i], Categorias.Nome(ordem[i]) + " " + cont[ordem[i]], Tema.Cor(Categorias.Cor(ordem[i])));
+            AddFiltro(ordem[i], "● " + Categorias.Nome(ordem[i]), cont[ordem[i]], Tema.Cor(Categorias.Cor(ordem[i])));
         filtros.ResumeLayout(true);
     }
 
-    private void AddFiltro(int id, string texto, DColor cor)
+    // pilula: fundo escuro arredondado, nome na cor da categoria e o numero mais apagado
+    private void AddFiltro(int id, string texto, int n, DColor cor)
     {
         bool sel = filtroGlos == id;
-        Button b = Tema.Botao(texto, Tema.D(10) + TextRenderer.MeasureText(texto, Tema.F(8.5f, sel)).Width + Tema.D(14), Tema.D(26), sel ? 1 : 0, delegate
+        string rot = texto + "  " + n;
+        Button b = Tema.Botao(rot, Tema.D(14) + TextRenderer.MeasureText(rot, Tema.F(8.5f, sel)).Width + Tema.D(14), Tema.D(26), sel ? 1 : 0, delegate
         {
             filtroGlos = id;
             versaoGrade = -1;
             PreencherGrade();
         });
         b.Font = Tema.F(8.5f, sel);
-        if (!sel) b.ForeColor = cor;
-        b.Margin = new Padding(0, 0, Tema.D(4), Tema.D(4));
+        if (!sel)
+        {
+            b.ForeColor = cor;
+            b.BackColor = Tema.Rgb(0x16, 0x1D, 0x23);
+            b.FlatAppearance.BorderColor = Tema.Rgb(0x26, 0x31, 0x3A);
+        }
+        Tema.Arredondar(b, Tema.D(13));
+        b.Margin = new Padding(0, 0, Tema.D(5), Tema.D(5));
         filtros.Controls.Add(b);
     }
 
@@ -1383,6 +1558,14 @@ internal sealed class Janela : Form
         return b.Length == 0
             || t.Original.ToLowerInvariant().IndexOf(b, StringComparison.Ordinal) >= 0
             || t.Traducao.ToLowerInvariant().IndexOf(b, StringComparison.Ordinal) >= 0;
+    }
+
+    private static string Icone(TermoGlossario t)
+    {
+        if (t.Conflito) return "⚠";
+        if (t.Travado) return "🔒";
+        if (!string.IsNullOrEmpty(t.Pacote)) return "📜";
+        return "";
     }
 
     private void PreencherGrade()
@@ -1411,7 +1594,6 @@ internal sealed class Janela : Form
             return string.Compare(x.Original, y.Original, StringComparison.OrdinalIgnoreCase);
         });
         int max = Math.Min(filtrado.Count, 3000);
-        int[] ordem = Categorias.Ordem();
         preenchendo = true;
         grade.SuspendLayout();
         grade.Rows.Clear();
@@ -1419,18 +1601,17 @@ internal sealed class Janela : Form
         for (int i = 0; i < max; i++)
         {
             TermoGlossario t = filtrado[i];
-            int r = grade.Rows.Add(t.Original, t.Traducao, t.Curta ?? "", Categorias.Nome(t.Cat), Nivel(t), t.Travado);
+            int r = grade.Rows.Add(t.Original, t.Traducao, string.IsNullOrEmpty(t.Curta) ? "" : t.Curta, Categorias.Nome(t.Cat), Icone(t));
             DataGridViewRow row = grade.Rows[r];
-            if (t.Conflito) row.Cells["nivel"].Style.ForeColor = Tema.Aviso;
-            else if (t.Travado) row.Cells["nivel"].Style.ForeColor = Tema.Destaque;
-            else if (t.Confirmado) row.Cells["nivel"].Style.ForeColor = Tema.Ok;
-            else row.Cells["nivel"].Style.ForeColor = Tema.Fraco;
-            row.Cells["cat"].Style.ForeColor = Tema.Cor(Categorias.Cor(t.Cat));
+            DColor cor = Tema.Cor(Categorias.Cor(t.Cat));
+            row.Cells["cat"].Style.ForeColor = cor;
+            row.Cells["cat"].Style.SelectionForeColor = cor;
+            row.Cells["ic"].Style.ForeColor = t.Conflito ? Tema.Aviso : t.Travado ? Tema.Destaque : Tema.Dourado;
             if (t == selAntes) voltar = r;
         }
         grade.ResumeLayout();
         preenchendo = false;
-        // sem selecao o painel de baixo ficava vazio ate clicar: seleciona o primeiro
+        // sem selecao o painel ficava vazio ate clicar: seleciona o primeiro
         if (voltar < 0 && grade.Rows.Count > 0) voltar = 0;
         if (voltar >= 0)
         {
@@ -1439,13 +1620,13 @@ internal sealed class Janela : Form
         }
         glosContagem.Text = Glossario.Total == 0 ? LiveTxt.T("glos_vazio")
             : LiveTxt.F("glos_rodape", filtrado.Count, Glossario.Total) + (filtrado.Count > max ? " (" + max + ")" : "")
-              + "   " + LiveTxt.F("glos_memoria", Glossario.Travados) + "   " + LiveTxt.T("glos_nota2");
+              + "   ·   " + LiveTxt.F("glos_memoria", Glossario.Travados);
         MostrarSelecionado();
     }
 
     private static string Nivel(TermoGlossario t)
     {
-        if (t.Conflito) return LiveTxt.T("nivel_conflito") + ": " + t.Alternativa;
+        if (t.Conflito) return LiveTxt.T("nivel_conflito");
         if (t.Travado) return LiveTxt.T("nivel_travado");
         if (t.Confirmado) return LiveTxt.T("nivel_confirmado");
         return LiveTxt.T("nivel_novo") + " (" + t.Vistos + "/" + Glossario.VistosConfirmar + ")";
@@ -1454,6 +1635,21 @@ internal sealed class Janela : Form
     private TermoGlossario Termo(int linha)
     {
         return linha >= 0 && linha < filtrado.Count ? filtrado[linha] : null;
+    }
+
+    // troca a traducao de um termo (editou, escolheu sugestao): trava, cache, e a tela do jogo troca na hora
+    private void AplicarTraducao(TermoGlossario t, string nova)
+    {
+        nova = (nova ?? "").Trim();
+        if (t == null || nova.Length == 0 || nova == t.Traducao) return;
+        string antiga = t.Traducao;
+        t.Traducao = nova;
+        t.Travado = true;           // o que o jogador escolheu fica dele
+        t.Alternativa = "";
+        Glossario.Marcar();
+        TradCache.Add(t.Original, nova);
+        LiveMotor.Substituir(antiga, nova);
+        Ponte.AtualizarTermo(t.Original, nova);
     }
 
     private void GradeMudou(object sender, DataGridViewCellEventArgs e)
@@ -1467,13 +1663,7 @@ internal sealed class Janela : Form
         {
             string nova = ((row.Cells["trad"].Value as string) ?? "").Trim();
             if (nova.Length == 0 || nova == t.Traducao) { preenchendo = true; row.Cells["trad"].Value = t.Traducao; preenchendo = false; return; }
-            string antiga = t.Traducao;
-            t.Traducao = nova;
-            t.Travado = true;           // o que o jogador editou fica dele
-            t.Alternativa = "";
-            Glossario.Marcar();
-            TradCache.Add(t.Original, nova);
-            LiveMotor.Substituir(antiga, nova);
+            AplicarTraducao(t, nova);
         }
         else if (col == "curta")
         {
@@ -1496,38 +1686,220 @@ internal sealed class Janela : Form
                 break;
             }
         }
-        else if (col == "trava")
-        {
-            bool v = row.Cells["trava"].Value is bool && (bool)row.Cells["trava"].Value;
-            if (v == t.Travado) return;
-            t.Travado = v;
-            Glossario.Marcar();
-        }
         else return;
-        // a linha muda de nivel/cor: refaz no proximo relogio (fora do evento da grade)
+        // a linha muda de cor/icone: refaz no proximo relogio (fora do evento da grade)
         BeginInvoke(new Action(delegate { if (!grade.IsDisposed && !grade.IsCurrentCellInEditMode) PreencherGrade(); }));
+    }
+
+    private void SalvarDetTrad()
+    {
+        if (detPreenchendo || detTermo == null) return;
+        string nova = detTrad.Text.Trim();
+        if (nova.Length == 0) { detTrad.Text = detTermo.Traducao; return; }
+        AplicarTraducao(detTermo, nova);
+    }
+
+    private void SalvarDetCurta()
+    {
+        if (detPreenchendo || detTermo == null) return;
+        string nova = detCurta.Text.Trim();
+        if (nova == (detTermo.Curta ?? "")) return;
+        detTermo.Curta = nova;
+        Glossario.Marcar();
+        if (LiveConfig.TelasCurtas.Count > 0) Ponte.Reenviar = true;
     }
 
     private void MostrarSelecionado()
     {
-        if (glosInfo == null) return;
+        if (det == null) return;
         TermoGlossario t = grade.CurrentRow != null ? Termo(grade.CurrentRow.Index) : null;
-        btnUsarNova.Visible = t != null && t.Conflito;
-        btnManter.Visible = t != null && t.Conflito;
-        glosAbrStatus.Text = Abreviador.Status;
-        glosAbrStatus.ForeColor = Abreviador.StatusErro ? Tema.Erro : Tema.Ok;
-        MostrarTelas(t);
-        if (t == null)
+        // nao atropela o que o jogador esta digitando no painel
+        bool digitando = t != null && t == detTermo && (detTrad.Focused || detCurta.Focused);
+        detTermo = t;
+        det.SuspendLayout();
+        detPreenchendo = true;
+        bool tem = t != null;
+        foreach (Control c in det.Controls) if (c != detOrig && c != detAjuda && c != glosAbrStatus) c.Visible = tem;
+        if (!tem)
         {
-            glosInfo.Text = LiveTxt.T("glos_editar_dica2");
-            glosInfo.ForeColor = Tema.Fraco;
+            detOrig.Text = "";
+            detExemplo.Visible = true;
+            detExemplo.Text = LiveTxt.T("glos_editar_dica2");
+        }
+        else
+        {
+            detOrig.Text = t.Original;
+            if (!digitando)
+            {
+                detTrad.Text = t.Traducao;
+                detCurta.Text = t.Curta ?? "";
+            }
+            int[] ordem = Categorias.Ordem();
+            detCat.SelectedIndex = Array.IndexOf(ordem, t.Cat);
+            detNivel.Text = Nivel(t);
+            detNivel.ForeColor = t.Conflito ? Tema.Aviso : t.Travado ? Tema.Destaque : t.Confirmado ? Tema.Ok : Tema.Fraco;
+            detTrava.Text = t.Travado ? "🔓 " + LiveTxt.T("det_destravar") : "🔒 " + LiveTxt.T("det_travar");
+            Tema.Pintar(detTrava, t.Travado ? 0 : 1);
+            detConflito.Visible = t.Conflito;
+            if (t.Conflito) detConflitoTxt.Text = LiveTxt.F("glos_conflito_txt", t.Alternativa);
+            detExemplo.Visible = !string.IsNullOrEmpty(t.Exemplo);
+            detExemplo.Text = LiveTxt.T("glos_exemplo") + " " + t.Exemplo;
+            List<string> ls = Ponte.Lugares(t.Original);
+            int apertadas = 0;
+            for (int i = 0; i < ls.Count; i++) if (LiveConfig.TelasCurtas.Contains(ls[i])) apertadas++;
+            detOnde.Text = "📍 " + (ls.Count == 0 ? LiveTxt.T("abr_sem_telas") : LiveTxt.F("abr_resumo", ls.Count, apertadas));
+            detOnde.ForeColor = apertadas > 0 ? Tema.Destaque : Tema.Fraco;
+            MostrarSugestoes(t);
+        }
+        detPreenchendo = false;
+        AtualizarStatusDetalhe();
+        det.ResumeLayout(true);
+    }
+
+    private void AtualizarStatusDetalhe()
+    {
+        if (glosAbrStatus == null || glosAbrStatus.IsDisposed) return;
+        string st = sugerindo || sugStatus.Length > 0 ? sugStatus : Abreviador.Status;
+        bool erro = sugerindo || sugStatus.Length > 0 ? sugErro : Abreviador.StatusErro;
+        if (glosAbrStatus.Text != st) glosAbrStatus.Text = st;
+        glosAbrStatus.ForeColor = erro ? Tema.Erro : Tema.Ok;
+    }
+
+    private void MostrarSugestoes(TermoGlossario t)
+    {
+        detSug.SuspendLayout();
+        detSug.Controls.Clear();
+        List<string[]> l;
+        if (!sugestoes.TryGetValue(t.Original, out l) || l.Count == 0)
+        {
+            detSugTitulo.Visible = false;
+            detSug.Visible = false;
+            detSug.ResumeLayout();
             return;
         }
-        string s = t.Original + "  →  " + t.Traducao;
-        if (t.Conflito) s += "\n" + LiveTxt.F("glos_conflito_txt", t.Alternativa);
-        if (!string.IsNullOrEmpty(t.Exemplo)) s += "\n" + LiveTxt.T("glos_exemplo") + " " + t.Exemplo;
-        glosInfo.Text = s;
-        glosInfo.ForeColor = t.Conflito ? Tema.Aviso : Tema.Texto;
+        int w = Math.Max(Tema.D(200), detSug.MaximumSize.Width - Tema.D(16));
+        for (int i = 0; i < l.Count; i++)
+        {
+            string tr = l[i][0];
+            FlowLayoutPanel linha = new FlowLayoutPanel { FlowDirection = FlowDirection.LeftToRight, WrapContents = true, AutoSize = true, MinimumSize = new Size(w, 0), MaximumSize = new Size(w, 0), BackColor = DColor.Transparent, Margin = new Padding(0, Tema.D(2), 0, Tema.D(2)) };
+            Button usar = Tema.Botao(LiveTxt.T("sug_usar"), Tema.D(60), Tema.D(24), 0, delegate { AplicarTraducao(t, tr); });
+            usar.ForeColor = Tema.Destaque;
+            usar.FlatAppearance.BorderColor = Tema.Destaque;
+            usar.Font = Tema.F(8f, true);
+            Tema.Arredondar(usar, Tema.D(12));
+            linha.Controls.Add(usar);
+            Label lt = Tema.Rotulo(tr, w - Tema.D(70), Tema.Texto, 9.5f);
+            lt.Margin = new Padding(0, Tema.D(3), 0, 0);
+            linha.Controls.Add(lt);
+            if (l[i][1].Length > 0)
+            {
+                Label ln = Tema.Rotulo(l[i][1], w - Tema.D(70), Tema.Fraco, 8f);
+                ln.Margin = new Padding(Tema.D(66), 0, 0, Tema.D(2));
+                linha.Controls.Add(ln);
+                linha.SetFlowBreak(lt, true);
+            }
+            detSug.Controls.Add(linha);
+        }
+        detSugTitulo.Visible = true;
+        detSug.Visible = true;
+        detSug.ResumeLayout(true);
+    }
+
+    // botao "Sugerir traducoes": a IA da 3-4 opcoes para os termos selecionados (ate 20 por vez)
+    private async void Sugerir()
+    {
+        if (sugerindo) return;
+        List<TermoGlossario> sel = Selecionados();
+        if (sel.Count == 0) return;
+        if (sel.Count > 20) sel = sel.GetRange(0, 20);
+        Provedor p = LiveConfig.Atual;
+        string motivo;
+        if (p.Tipo == 0) { sugStatus = LiveTxt.T("cia_gratis"); sugErro = true; AtualizarStatusDetalhe(); return; }
+        if (!Provedores.Configurado(p, out motivo)) { sugStatus = motivo; sugErro = true; AtualizarStatusDetalhe(); return; }
+        List<string> itens = new List<string>();
+        for (int i = 0; i < sel.Count; i++) itens.Add(sel[i].Original + " || " + sel[i].Traducao + " || " + Categorias.Nome(sel[i].Cat));
+        sugerindo = true;
+        sugErro = false;
+        sugStatus = LiveTxt.F("sug_andamento", sel.Count);
+        AtualizarStatusDetalhe();
+        try
+        {
+            Resposta r = await Http.Enviar(Provedores.MontarSugerir(p, itens));
+            if (r.Codigo != 200)
+            {
+                sugStatus = LiveTxt.F("cia_erro", r.Codigo, string.IsNullOrEmpty(r.Erro) ? "" : r.Erro);
+                sugErro = true;
+            }
+            else
+            {
+                List<string> l = Provedores.InterpretarLista(p, r.Corpo, itens.Count);
+                if (l == null) { sugStatus = LiveTxt.T("teste_falhou"); sugErro = true; }
+                else
+                {
+                    int n = 0;
+                    for (int i = 0; i < sel.Count; i++)
+                    {
+                        List<string[]> ops = Provedores.LerSugestoes(l[i]);
+                        if (ops.Count == 0) continue;
+                        sugestoes[sel[i].Original] = ops;
+                        n++;
+                    }
+                    sugStatus = LiveTxt.F("sug_fim", n);
+                    if (sel.Count > 1 && n > 0) SugestoesEmLista(sel);
+                }
+            }
+        }
+        catch (Exception e) { sugStatus = LiveTxt.F("comp_erro", e.Message); sugErro = true; }
+        sugerindo = false;
+        if (det != null && !det.IsDisposed) MostrarSelecionado();
+    }
+
+    // varios termos: janela com as opcoes de cada um
+    private void SugestoesEmLista(List<TermoGlossario> sel)
+    {
+        using (Form d = new Form())
+        {
+            d.Text = LiveTxt.T("sug_bt");
+            d.FormBorderStyle = FormBorderStyle.Sizable;
+            d.StartPosition = FormStartPosition.CenterParent;
+            d.ClientSize = new Size(Tema.D(720), Tema.D(600));
+            d.MinimizeBox = false;
+            d.BackColor = Tema.Cartao;
+            d.ForeColor = Tema.Texto;
+            d.Font = Tema.F(9f);
+            int w = Tema.D(660);
+            FlowLayoutPanel f = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(Tema.D(16)) };
+            d.Controls.Add(f);
+            f.Controls.Add(Tema.Rotulo(LiveTxt.T("sug_lista_dica"), w, Tema.Fraco, 8.5f));
+            for (int i = 0; i < sel.Count; i++)
+            {
+                TermoGlossario t = sel[i];
+                List<string[]> ops;
+                if (!sugestoes.TryGetValue(t.Original, out ops)) continue;
+                Label tit = Tema.Rotulo(t.Original + "   →   " + t.Traducao, w, Tema.Dourado, 10.5f);
+                tit.Margin = new Padding(0, Tema.D(12), 0, Tema.D(4));
+                f.Controls.Add(tit);
+                Label feito = Tema.Rotulo("", w, Tema.Ok, 8.5f);
+                for (int k = 0; k < ops.Count; k++)
+                {
+                    string tr = ops[k][0];
+                    FlowLayoutPanel linha = Tema.Linha(w);
+                    Button usar = Tema.Botao(LiveTxt.T("sug_usar"), Tema.D(60), Tema.D(24), 0, delegate { AplicarTraducao(t, tr); feito.Text = "✓ " + tr; });
+                    usar.ForeColor = Tema.Destaque;
+                    usar.FlatAppearance.BorderColor = Tema.Destaque;
+                    usar.Font = Tema.F(8f, true);
+                    linha.Controls.Add(usar);
+                    Label lt = Tema.Rotulo(tr + (ops[k][1].Length > 0 ? "   ·   " + ops[k][1] : ""), w - Tema.D(70), Tema.Texto, 9.5f);
+                    lt.Margin = new Padding(0, Tema.D(4), 0, 0);
+                    linha.Controls.Add(lt);
+                    f.Controls.Add(linha);
+                }
+                f.Controls.Add(feito);
+            }
+            d.ShowDialog(this);
+        }
+        versaoGrade = -1;
+        PreencherGrade();
     }
 
     private List<TermoGlossario> Selecionados()
@@ -1540,23 +1912,6 @@ internal sealed class Janela : Form
         }
         if (l.Count == 0 && grade.CurrentRow != null && Termo(grade.CurrentRow.Index) != null) l.Add(Termo(grade.CurrentRow.Index));
         return l;
-    }
-
-    // linha curta no painel de baixo: em quantas telas o termo apareceu e quantas estao apertadas
-    // (marcar/desmarcar fica so na janela "Telas apertadas")
-    private void MostrarTelas(TermoGlossario t)
-    {
-        glosTelas.SuspendLayout();
-        glosTelas.Controls.Clear();
-        if (t != null)
-        {
-            List<string> ls = Ponte.Lugares(t.Original);
-            int apertadas = 0;
-            for (int i = 0; i < ls.Count; i++) if (LiveConfig.TelasCurtas.Contains(ls[i])) apertadas++;
-            string txt = ls.Count == 0 ? LiveTxt.T("abr_sem_telas") : LiveTxt.F("abr_resumo", ls.Count, apertadas);
-            glosTelas.Controls.Add(Tema.Rotulo(txt, larguraDet, apertadas > 0 ? Tema.Destaque : Tema.Fraco, 8.5f));
-        }
-        glosTelas.ResumeLayout();
     }
 
     // botao "Abreviar e mostrar": a IA abrevia os selecionados (os que ainda nao tem) e as telas onde eles
@@ -1743,6 +2098,7 @@ internal sealed class Janela : Form
         {
             TradCache.Add(t.Original, t.Traducao);
             LiveMotor.Substituir(antiga, t.Traducao);
+            Ponte.AtualizarTermo(t.Original, t.Traducao);
         }
         PreencherGrade();
     }

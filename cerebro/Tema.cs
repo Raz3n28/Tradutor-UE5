@@ -25,6 +25,7 @@ internal static class Tema
     public static readonly System.Drawing.Color Erro = Rgb(0xF8, 0x71, 0x71);
     public static readonly System.Drawing.Color Perigo = Rgb(0x7F, 0x1D, 0x1D);
     public static readonly System.Drawing.Color TextoEscuro = Rgb(0x0B, 0x0F, 0x14);
+    public static readonly System.Drawing.Color Dourado = Rgb(0xF1, 0xD7, 0x9A);
 
     public static float Escala = 1f;
 
@@ -207,6 +208,54 @@ internal static class Tema
         };
     }
 
+    // cantos arredondados (pilulas, botoes pequenos): recorta o controle; refaz quando muda de tamanho
+    public static void Arredondar(Control c, int raio)
+    {
+        EventHandler aplicar = delegate
+        {
+            if (c.Width <= 0 || c.Height <= 0) return;
+            using (System.Drawing.Drawing2D.GraphicsPath g = new System.Drawing.Drawing2D.GraphicsPath())
+            {
+                int d = Math.Min(raio * 2, Math.Min(c.Width, c.Height));
+                g.AddArc(0, 0, d, d, 180, 90);
+                g.AddArc(c.Width - d, 0, d, d, 270, 90);
+                g.AddArc(c.Width - d, c.Height - d, d, d, 0, 90);
+                g.AddArc(0, c.Height - d, d, d, 90, 90);
+                g.CloseFigure();
+                Region antiga = c.Region;
+                c.Region = new Region(g);
+                if (antiga != null) antiga.Dispose();
+            }
+        };
+        c.SizeChanged += aplicar;
+        aplicar(c, EventArgs.Empty);
+    }
+
+    // imagens embutidas no .exe (pasta img do projeto); null se faltar
+    private static readonly Dictionary<string, Image> imagens = new Dictionary<string, Image>();
+    public static Image Imagem(string nome)
+    {
+        Image i;
+        if (imagens.TryGetValue(nome, out i)) return i;
+        try
+        {
+            using (System.IO.Stream s = typeof(Tema).Assembly.GetManifestResourceStream(nome))
+                i = s == null ? null : new Bitmap(Image.FromStream(s));
+        }
+        catch { i = null; }
+        imagens[nome] = i;
+        return i;
+    }
+
+    // fundo com textura de papel (desenhada por cima da cor do controle)
+    public static void Papel(Control c)
+    {
+        Image p = Imagem("papel.png");
+        if (p == null) return;
+        c.BackgroundImage = p;
+        c.BackgroundImageLayout = ImageLayout.Tile;
+    }
+
     // cor da categoria (Categorias.Cor) para a tela
     public static System.Drawing.Color Cor(global::Color c)
     {
@@ -221,5 +270,15 @@ internal sealed class PainelFixo : Panel
     protected override Point ScrollToControl(Control activeControl)
     {
         return DisplayRectangle.Location;
+    }
+}
+
+// Painel que desenha sem piscar e redesenha ao mudar de tamanho (fundo com imagem)
+internal sealed class PainelLiso : Panel
+{
+    public PainelLiso()
+    {
+        DoubleBuffered = true;
+        ResizeRedraw = true;
     }
 }
