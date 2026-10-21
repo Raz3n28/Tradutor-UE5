@@ -78,6 +78,13 @@ internal sealed partial class Janela : Form
         bandeja.DoubleClick += delegate { Alternar(true); };
         Ponte.MenuPedido += delegate { Alternar(!Visible); };
 
+        // primeira vez: abre no tutorial
+        if (!LiveConfig.TutorialVisto)
+        {
+            aba = AbaTutorial;
+            LiveConfig.TutorialVisto = true;
+            LiveConfig.Marcar();
+        }
         Construir(true);
 
         relogio.Interval = 50;

@@ -110,6 +110,8 @@ internal static class LiveConfig
     public static bool Encaixar = true;
     // memoria de exemplos: os termos travados pelo jogador vao de modelo para os termos novos parecidos
     public static bool Exemplos = true;
+    // o tutorial (aba Como usar) ja abriu sozinho uma vez
+    public static bool TutorialVisto;
     // telas apertadas (lugares "tela / texto", ver Glossario.Onde): nelas vai a abreviacao do termo
     public static readonly HashSet<string> TelasCurtas = new HashSet<string>();
     // tecla global (Windows) que pausa/continua a traducao sem abrir o menu: Keys do WinForms com
@@ -213,6 +215,7 @@ internal static class LiveConfig
             else if (k == "verificar_glossario") VerificarGlossario = v != "0";
             else if (k == "encaixar") Encaixar = v != "0";
             else if (k == "exemplos") Exemplos = v != "0";
+            else if (k == "tutorial_visto") TutorialVisto = v == "1";
             else if (k == "telas_curtas")
             {
                 TelasCurtas.Clear();
@@ -255,6 +258,7 @@ internal static class LiveConfig
             sb.AppendLine("verificar_glossario=" + (VerificarGlossario ? "1" : "0"));
             sb.AppendLine("encaixar=" + (Encaixar ? "1" : "0"));
             sb.AppendLine("exemplos=" + (Exemplos ? "1" : "0"));
+            sb.AppendLine("tutorial_visto=" + (TutorialVisto ? "1" : "0"));
             sb.AppendLine("telas_curtas=" + string.Join("|", TelasCurtas));
             sb.AppendLine("tecla_alternar=" + TeclaAlternar);
             sb.AppendLine("escala=" + Escala);
