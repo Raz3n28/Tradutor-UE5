@@ -78,6 +78,8 @@ internal static class Http
                 {
                     r.Codigo = (int)resp.StatusCode;
                     r.Corpo = Encoding.UTF8.GetString(await resp.Content.ReadAsByteArrayAsync());
+                    // tokens gastos (resposta da IA): conta para o painel de gasto
+                    if (r.Codigo == 200) Gasto.Registrar(r.Corpo);
                     if (!resp.IsSuccessStatusCode) r.Erro = resp.ReasonPhrase;
                     if (resp.Headers.RetryAfter != null)
                     {

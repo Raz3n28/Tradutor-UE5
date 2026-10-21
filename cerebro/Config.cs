@@ -110,6 +110,22 @@ internal static class LiveConfig
     public static bool Encaixar = true;
     // memoria de exemplos: os termos travados pelo jogador vao de modelo para os termos novos parecidos
     public static bool Exemplos = true;
+    // preco de cada provedor (US$ por 1 milhao de tokens: entrada;saida) e cotacao do dolar, para o gasto
+    public static readonly Dictionary<string, string> Precos = new Dictionary<string, string>();
+    public static double Cotacao = 5.5;
+
+    public static bool Preco(string id, out double entrada, out double saida)
+    {
+        entrada = saida = 0;
+        string v;
+        if (!Precos.TryGetValue(id, out v)) return false;
+        string[] p = v.Split(';');
+        return p.Length == 2
+            && double.TryParse(p[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out entrada)
+            && double.TryParse(p[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out saida)
+            && (entrada > 0 || saida > 0);
+    }
+
     // o tutorial (aba Como usar) ja abriu sozinho uma vez
     public static bool TutorialVisto;
     // telas apertadas (lugares "tela / texto", ver Glossario.Onde): nelas vai a abreviacao do termo
@@ -216,6 +232,8 @@ internal static class LiveConfig
             else if (k == "encaixar") Encaixar = v != "0";
             else if (k == "exemplos") Exemplos = v != "0";
             else if (k == "tutorial_visto") TutorialVisto = v == "1";
+            else if (k.StartsWith("preco.")) Precos[k.Substring(6)] = v;
+            else if (k == "cotacao") { double d; if (double.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out d) && d > 0) Cotacao = d; }
             else if (k == "telas_curtas")
             {
                 TelasCurtas.Clear();
@@ -259,6 +277,8 @@ internal static class LiveConfig
             sb.AppendLine("encaixar=" + (Encaixar ? "1" : "0"));
             sb.AppendLine("exemplos=" + (Exemplos ? "1" : "0"));
             sb.AppendLine("tutorial_visto=" + (TutorialVisto ? "1" : "0"));
+            foreach (KeyValuePair<string, string> kv in Precos) sb.AppendLine("preco." + kv.Key + "=" + kv.Value);
+            sb.AppendLine("cotacao=" + Cotacao.ToString(System.Globalization.CultureInfo.InvariantCulture));
             sb.AppendLine("telas_curtas=" + string.Join("|", TelasCurtas));
             sb.AppendLine("tecla_alternar=" + TeclaAlternar);
             sb.AppendLine("escala=" + Escala);

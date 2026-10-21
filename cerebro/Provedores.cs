@@ -382,9 +382,15 @@ internal static class Provedores
 
     // pedido para a IA (formato OpenAI ou Claude) com o prompt de sistema e a mensagem do usuario prontos.
     // maxTokens so vai no Claude (la e obrigatorio).
+    // separa a parte fixa do prompt (regras, estilo, categorias) da parte que muda a cada pedido
+    // (quantidade, glossario do lote, exemplos, contexto). Claude: a parte fixa vai com cache_control.
+    // OpenAI/DeepSeek/Gemini fazem cache sozinhos pelo comeco igual do prompt; para eles o corte some.
+    private const string CorteCache = "\u0001";
+
     private static Pedido MontarIA(Provedor p, string sistema, string usuario, int maxTokens)
     {
         if (p.Tipo == 2) return MontarClaudeIA(p, sistema, usuario, maxTokens);
+        sistema = sistema.Replace(CorteCache, "\n");
         string url = LiveConfig.Url(p.Id).Trim().TrimEnd('/');
         if (!url.EndsWith("/chat/completions")) url += "/chat/completions";
 
@@ -463,8 +469,20 @@ internal static class Provedores
     private static Pedido MontarClaudeIA(Provedor p, string sistema, string usuario, int maxTokens)
     {
         string url = LiveConfig.Url(p.Id).Trim();
-        string json = "{\"model\":" + Json.Esc(LiveConfig.Modelo(p.Id).Trim()) + ",\"max_tokens\":" + maxTokens + ",\"temperature\":0.2,"
-            + "\"system\":" + Json.Esc(sistema) + ",\"messages\":["
+        // os modelos atuais da Claude recusam "temperature" (erro 400): vai sem. A parte fixa do prompt vai num
+        // bloco com cache_control (lido do cache a ~10% do preco); prompt curto demais so nao entra no cache.
+        string sys;
+        int corte = sistema.IndexOf(CorteCache, StringComparison.Ordinal);
+        if (corte > 0)
+        {
+            string fixo = sistema.Substring(0, corte);
+            string resto = sistema.Substring(corte + CorteCache.Length).Trim();
+            sys = "[{\"type\":\"text\",\"text\":" + Json.Esc(fixo) + ",\"cache_control\":{\"type\":\"ephemeral\"}}"
+                + (resto.Length > 0 ? ",{\"type\":\"text\",\"text\":" + Json.Esc(resto) + "}" : "") + "]";
+        }
+        else sys = Json.Esc(sistema);
+        string json = "{\"model\":" + Json.Esc(LiveConfig.Modelo(p.Id).Trim()) + ",\"max_tokens\":" + maxTokens + ","
+            + "\"system\":" + sys + ",\"messages\":["
             + "{\"role\":\"user\",\"content\":" + Json.Esc(usuario) + "}]}";
         Pedido r = Post(url, json);
         r.Cab("x-api-key", LiveConfig.Chave(p.Id).Trim());
@@ -508,8 +526,7 @@ internal static class Provedores
         sb.Append("The source text may be Chinese, English or a mix of both. ");
         sb.Append("Hard rules: keep placeholders such as {0}, {1}, {2} and all markup tags EXACTLY unchanged and in the text; ");
         sb.Append("never add notes or explanations; if a string is already in the target language, return it unchanged. ");
-        sb.Append("The input has exactly ").Append(textos.Count).Append(textos.Count == 1 ? " string" : " strings")
-          .Append(". Each string is ONE item even when it contains line breaks (\\n): keep its line breaks inside that item, ")
+        sb.Append("Each string is ONE item even when it contains line breaks (\\n): keep its line breaks inside that item, ")
           .Append("and never merge two strings into one or split one into two. ")
           .Append("Chinese has no spaces, but the target language may: put a normal space between a word and a placeholder next to it when the grammar needs it (\"消耗{0}\" -> \"Cost {0}\", not \"Cost{0}\"). ");
         // lote com termo curto (vai entrar no glossario): a IA tambem diz a categoria de cada um, e ja traduz
@@ -538,7 +555,7 @@ internal static class Provedores
         }
         else
             sb.Append("Reply with ONLY a JSON array of strings, with exactly the same number of items and the same order as the input.");
-        if (TesteCru) return sb.ToString();
+        if (TesteCru) return sb.Append(" The input has exactly ").Append(textos.Count).Append(textos.Count == 1 ? " string." : " strings.").ToString();
 
         int e = LiveConfig.Estilo;
         if (e < 0 || e >= LiveConfig.Estilos.Length) e = 0;
@@ -564,6 +581,10 @@ internal static class Provedores
             string cats = Categorias.TextoPrompt();
             if (cats.Length > 0) sb.Append("\n").Append(cats);
         }
+
+        // daqui para baixo muda a cada pedido; o que esta acima se repete (a Claude guarda em cache: CorteCache)
+        sb.Append(CorteCache);
+        sb.Append("The input has exactly ").Append(textos.Count).Append(textos.Count == 1 ? " string." : " strings.");
 
         // glossario: o mesmo nome traduzido do mesmo jeito tambem dentro de frases
         List<TermoGlossario> termos = Glossario.TermosEm(textos, 40, 1500);

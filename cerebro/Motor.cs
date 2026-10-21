@@ -323,12 +323,27 @@ internal static class LiveMotor
             float agoraFila = Time.unscaledTime;
             if (fila.Count == 0) inicioEspera = agoraFila;
             ultimaEntrada = agoraFila;
-            fila.AddLast(tpl);
+            // fala de personagem / frase passa na frente de menu: aparece mais rapido na conversa
+            // (entre as prioritarias, a ordem de chegada continua)
+            if (Prioridade(s, origem))
+                ultimaPrioridade = ultimaPrioridade != null && ultimaPrioridade.List == fila ? fila.AddAfter(ultimaPrioridade, tpl) : fila.AddFirst(tpl);
+            else fila.AddLast(tpl);
             // pista de termos (categoria) e de frases (onde os termos achados dentro delas apareceram)
             if (origem != null && !pistas.ContainsKey(tpl)) pistas[tpl] = Pista(origem);
             if (!amostras.ContainsKey(tpl)) amostras[tpl] = s;
         }
         return null;
+    }
+
+    private static LinkedListNode<string> ultimaPrioridade;
+    private static readonly string[] telasDialogo = { "dialog", "talk", "story", "chat", "speak", "subtitle", "bubble" };
+    private static bool Prioridade(string s, string origem)
+    {
+        string o = (origem ?? "").ToLowerInvariant();
+        for (int i = 0; i < telasDialogo.Length; i++) if (o.IndexOf(telasDialogo[i], StringComparison.Ordinal) >= 0) return true;
+        // frase (tem pontuacao de frase e e longa)
+        if (s.Length < 8) return false;
+        return s.IndexOf('。') >= 0 || s.IndexOf('，') >= 0 || s.IndexOf('！') >= 0 || s.IndexOf('？') >= 0;
     }
 
     // traducao que ja existe para o texto (sem por na fila e sem mexer em nada); null se nao tem

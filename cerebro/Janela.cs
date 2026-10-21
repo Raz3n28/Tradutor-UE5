@@ -86,6 +86,8 @@ internal sealed partial class Janela : Form
             LiveConfig.Marcar();
         }
         Construir(true);
+        // aviso de versao nova (GitHub); sem internet fica quieto
+        _ = Atualizacao.Verificar();
 
         relogio.Interval = 50;
         relogio.Tick += Tick;
@@ -671,6 +673,20 @@ internal sealed partial class Janela : Form
         sub.Margin = new Padding(0, Tema.D(6), Tema.D(10), 0);
         l1.Controls.Add(sub);
         faixa.Controls.Add(l1);
+        // versao nova no GitHub
+        if (Atualizacao.Nova.Length > 0)
+        {
+            FlowLayoutPanel nv = Tema.Linha(Interna);
+            nv.Margin = new Padding(0, Tema.D(8), 0, 0);
+            Label tn = Tema.Rotulo("⬆ " + LiveTxt.F("upd_nova", Atualizacao.Nova, Atualizacao.Atual), Interna - Tema.D(200), Tema.Dourado, 9.5f, true);
+            tn.Margin = new Padding(0, Tema.D(6), Tema.D(10), 0);
+            nv.Controls.Add(tn);
+            nv.Controls.Add(Tema.Botao(LiveTxt.T("upd_abrir"), Tema.D(170), Tema.D(28), 2, delegate
+            {
+                try { Process.Start(new ProcessStartInfo(Atualizacao.Link) { UseShellExecute = true }); } catch { }
+            }));
+            faixa.Controls.Add(nv);
+        }
 
         // 6 cartoes de resumo (3 por linha); "Abrir" leva para a aba
         FlowLayoutPanel cards = Tema.Linha(L + Tema.D(10));
@@ -694,6 +710,7 @@ internal sealed partial class Janela : Form
         Label nPed = Bloco(blocos, bw, LiveTxt.T("pn_pedmin"));
         Label nGlos = Bloco(blocos, bw, LiveTxt.T("pn_glos"));
         Label inteligente = Dica(est, "");
+        Label gasto = gratis ? null : Rot(est, "", Tema.Fraco, 8.5f);
 
         // ultimas traducoes
         FlowLayoutPanel ult = Cartao(LiveTxt.T("pn_ultimas"));
@@ -740,6 +757,7 @@ internal sealed partial class Janela : Form
             nPed.Text = Num(LiveMotor.PedidosMinuto) + (gratis ? "" : "  / " + LiveConfig.Rpm);
             nGlos.Text = Num(Glossario.Total);
             inteligente.Text = gratis ? LiveTxt.T("pn_glos_gratis") : LiveTxt.F("pn_glos_ia", LiveMotor.TermosAchados, LiveMotor.Refeitos);
+            if (gasto != null) gasto.Text = "💰 " + LiveTxt.T("gasto_hoje") + ": " + Gasto.Texto(Gasto.Total(false)) + "    ·    " + LiveTxt.T("gasto_mes") + ": " + Gasto.Texto(Gasto.Total(true));
 
             List<string[]> u = LiveMotor.Ultimas;
             for (int i = 0; i < linhas.Length; i++)
@@ -2409,29 +2427,117 @@ internal sealed partial class Janela : Form
         Dica(tec, LiveTxt.T(capturando ? "tecla_dica_captura" : "tecla_dica"));
         if (teclaErro.Length > 0) Rot(tec, teclaErro, Tema.Erro);
 
+        // pacote de traducao (compartilhar) e relatorio de erro
         FlowLayoutPanel ferr = Cartao(LiveTxt.T("av_ferr"));
         FlowLayoutPanel l3 = Tema.Linha(Interna + Tema.D(6));
         int bw = (Interna - Tema.D(12)) / 3;
         Label msg = null;
-        l3.Controls.Add(Tema.Botao(LiveTxt.T("comp_exportar"), bw, Tema.D(30), 0, delegate
+        l3.Controls.Add(Tema.Botao("📦 " + LiveTxt.T("pkt_exportar"), bw, Tema.D(32), 1, delegate
         {
-            msgAvanc = Compartilhar.Exportar();
+            using (SaveFileDialog d = new SaveFileDialog { Filter = "Zip (*.zip)|*.zip", FileName = "TradutorUE5-" + LiveConfig.Idioma + "-" + DateTime.Now.ToString("yyyy-MM-dd") + ".zip" })
+            {
+                if (d.ShowDialog(this) != DialogResult.OK) return;
+                msgAvanc = Compartilhar.ExportarZip(d.FileName);
+            }
             msgAvancErro = false;
             msg.Text = msgAvanc;
             msg.ForeColor = Tema.Ok;
         }));
-        l3.Controls.Add(Tema.Botao(LiveTxt.T("comp_importar"), bw, Tema.D(30), 0, delegate
+        l3.Controls.Add(Tema.Botao("📥 " + LiveTxt.T("pkt_importar"), bw, Tema.D(32), 0, delegate
         {
-            msgAvanc = Compartilhar.Importar();
+            using (OpenFileDialog d = new OpenFileDialog { Filter = "Zip (*.zip)|*.zip" })
+            {
+                if (d.ShowDialog(this) != DialogResult.OK) return;
+                msgAvanc = Compartilhar.ImportarZip(d.FileName);
+            }
             msgAvancErro = false;
             msg.Text = msgAvanc;
             msg.ForeColor = Tema.Ok;
-            LiveMotor.VarrerAgora = true;
         }));
-        l3.Controls.Add(Tema.Botao(LiveTxt.T("log_pasta"), bw, Tema.D(30), 0, delegate { AbrirPasta(Compartilhar.Pasta); }));
+        l3.Controls.Add(Tema.Botao("🧾 " + LiveTxt.T("rel_bt"), bw, Tema.D(32), 0, delegate
+        {
+            try
+            {
+                string z = Relatorio.Gerar();
+                msgAvanc = LiveTxt.F("rel_feito", z);
+                msgAvancErro = false;
+                try { Process.Start("explorer.exe", "/select,\"" + z + "\""); } catch { }
+            }
+            catch (Exception e) { msgAvanc = LiveTxt.F("comp_erro", e.Message); msgAvancErro = true; }
+            msg.Text = msgAvanc;
+            msg.ForeColor = msgAvancErro ? Tema.Erro : Tema.Ok;
+        }));
         ferr.Controls.Add(l3);
-        Dica(ferr, LiveTxt.F("comp_dica", LiveConfig.Idioma));
+        Dica(ferr, LiveTxt.T("pkt_dica"));
+        Dica(ferr, LiveTxt.T("rel_dica"));
         msg = Rot(ferr, msgAvanc, msgAvancErro ? Tema.Erro : Tema.Ok);
+
+        // gasto da chave: preco do provedor atual e cotacao
+        if (!gratis)
+        {
+            FlowLayoutPanel gst = Cartao(LiveTxt.T("gasto_titulo"));
+            Label totais = Rot(gst, "", Tema.Texto, 9.5f);
+            Action contar = delegate
+            {
+                totais.Text = LiveTxt.T("gasto_hoje") + ": " + Gasto.Texto(Gasto.Total(false)) + "\n" + LiveTxt.T("gasto_mes") + ": " + Gasto.Texto(Gasto.Total(true));
+            };
+            contar();
+            double pe, ps;
+            LiveConfig.Preco(LiveConfig.ProvedorId, out pe, out ps);
+            FlowLayoutPanel lp = Tema.Linha(Interna);
+            System.Globalization.CultureInfo inv = System.Globalization.CultureInfo.InvariantCulture;
+            Label r1 = Tema.Rotulo(LiveTxt.T("gasto_entrada"), Tema.D(170), Tema.Texto, 9f);
+            r1.Margin = new Padding(0, Tema.D(6), Tema.D(6), 0);
+            lp.Controls.Add(r1);
+            TextBox ent = Tema.Campo(pe > 0 ? pe.ToString(inv) : "", Tema.D(80));
+            lp.Controls.Add(ent);
+            Label r2 = Tema.Rotulo(LiveTxt.T("gasto_saida"), Tema.D(170), Tema.Texto, 9f);
+            r2.Margin = new Padding(Tema.D(10), Tema.D(6), Tema.D(6), 0);
+            lp.Controls.Add(r2);
+            TextBox sai = Tema.Campo(ps > 0 ? ps.ToString(inv) : "", Tema.D(80));
+            lp.Controls.Add(sai);
+            Label r3 = Tema.Rotulo(LiveTxt.T("gasto_cotacao"), Tema.D(120), Tema.Texto, 9f);
+            r3.Margin = new Padding(Tema.D(10), Tema.D(6), Tema.D(6), 0);
+            lp.Controls.Add(r3);
+            TextBox cot = Tema.Campo(LiveConfig.Cotacao.ToString(inv), Tema.D(60));
+            lp.Controls.Add(cot);
+            EventHandler salvar = delegate
+            {
+                string a = ent.Text.Trim().Replace(',', '.'), b = sai.Text.Trim().Replace(',', '.');
+                if (a.Length == 0 && b.Length == 0) LiveConfig.Precos.Remove(LiveConfig.ProvedorId);
+                else LiveConfig.Precos[LiveConfig.ProvedorId] = (a.Length > 0 ? a : "0") + ";" + (b.Length > 0 ? b : "0");
+                double c;
+                if (double.TryParse(cot.Text.Trim().Replace(',', '.'), System.Globalization.NumberStyles.Float, inv, out c) && c > 0) LiveConfig.Cotacao = c;
+                LiveConfig.Marcar();
+                contar();
+            };
+            ent.TextChanged += salvar;
+            sai.TextChanged += salvar;
+            cot.TextChanged += salvar;
+            gst.Controls.Add(lp);
+            Dica(gst, LiveTxt.F("gasto_dica", LiveConfig.Atual.Nome));
+        }
+
+        // backup do glossario
+        FlowLayoutPanel bk = Cartao(LiveTxt.T("bk_titulo"));
+        List<string> backups = Backup.Lista();
+        FlowLayoutPanel lb2 = Tema.Linha(Interna);
+        ComboBox datas = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = Tema.D(200), BackColor = Tema.CorCampo, ForeColor = Tema.Texto, FlatStyle = FlatStyle.Flat, Font = Tema.F(9.5f), Margin = new Padding(0, 0, Tema.D(8), 0) };
+        foreach (string b in backups) datas.Items.Add(Backup.Data(b));
+        if (datas.Items.Count > 0) datas.SelectedIndex = 0;
+        lb2.Controls.Add(datas);
+        Label bkMsg = null;
+        lb2.Controls.Add(Tema.Botao("↺ " + LiveTxt.T("bk_restaurar"), Tema.D(200), Tema.D(30), 0, delegate
+        {
+            if (datas.SelectedIndex < 0) return;
+            if (MessageBox.Show(this, LiveTxt.F("bk_conf", datas.Text), LiveTxt.T("bk_titulo"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+            try { Backup.Restaurar(backups[datas.SelectedIndex]); bkMsg.Text = LiveTxt.F("bk_feito", datas.Text); bkMsg.ForeColor = Tema.Ok; }
+            catch (Exception e) { bkMsg.Text = LiveTxt.F("comp_erro", e.Message); bkMsg.ForeColor = Tema.Erro; }
+        }));
+        lb2.Controls.Add(Tema.Botao(LiveTxt.T("log_pasta"), Tema.D(140), Tema.D(30), 0, delegate { AbrirPasta(Backup.Pasta); }));
+        bk.Controls.Add(lb2);
+        Dica(bk, LiveTxt.T(backups.Count == 0 ? "bk_vazio" : "bk_dica"));
+        bkMsg = Rot(bk, "", Tema.Ok);
 
         FlowLayoutPanel cache = Cartao(LiveTxt.T("av_cache"));
         cache.Controls.Add(Tema.Botao(LiveTxt.T(confLimpar ? "limpar_conf" : "limpar_cache"), Interna, Tema.D(32), confLimpar ? 3 : 0, delegate

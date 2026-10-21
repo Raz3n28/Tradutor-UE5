@@ -46,7 +46,7 @@ internal static class Program
 
     public static void Salvar()
     {
-        try { TradCache.Flush(); LiveConfig.SalvarSeSujo(); Glossario.SalvarSeSujo(); } catch { }
+        try { TradCache.Flush(); LiveConfig.SalvarSeSujo(); Glossario.SalvarSeSujo(); Gasto.Gravar(); } catch { }
     }
 
     // O jogo ainda esta aberto? (qualquer processo "*-Win64-Shipping" ou "*-WinGDK-Shipping")
