@@ -44,17 +44,27 @@ GLOSSARIO INTELIGENTE (modo com chave)
 TEXTO QUE NAO CABE
 - Estilo > "Traducoes curtas onde o espaco e curto" (ligado): a IA tenta caber no espaco do original.
 
+ESTILOS (aba Estilo, modo com chave)
+Natural (padrao, como traducao oficial), Legenda de donghua (fala com sentido, cada personagem com sua voz),
+Epico / wuxia, Casual e Bem curto. "Testar o estilo": cole uma fala do jogo e veja lado a lado a traducao
+sem nada e com o que voce escolheu (gasta 2 pedidos; nao entra no cache nem no glossario).
+
+PACOTE XIANXIA (opcional)
+Glossario > "Pacote xianxia": cerca de 370 termos de cultivo (reinos, titulos, seitas, corpo e energia, itens,
+tecnicas, criaturas e mundo) em PT-BR e EN. Marque os grupos e importe; entram sem trava e nao trocam o que
+voce ja tem. "Remover marcados" tira so o que veio do pacote (o que voce editou ou travou fica).
+
 CONFIGURACOES DE VIDEO
 Ao aplicar configuracoes de video a ponte para por 6 s (o jogo refaz as telas nessa hora).
 
-ABREVIACOES (texto que nao cabe, com o nome inteiro na dica do mouse)
+ABREVIACOES (texto que nao cabe, com o nome inteiro na caixa de descricao)
 Jeito rapido: jogue com o tradutor aberto passando pelas telas que estouram. No Glossario filtre (ex.: Atributo),
 aperte "Selecionar tudo" e depois "Abreviar e mostrar": a IA abrevia (modo com chave) e as listas onde esses
-termos aparecem ficam apertadas. A dica do mouse (um texto por vez) continua com o nome inteiro.
+termos aparecem ficam apertadas. A caixa de descricao (a que abre ao passar o mouse) continua com o nome inteiro.
 Jeito manual: Glossario > "Telas apertadas" mostra cada tela pelos textos dela (antes -> depois); marque ou
 desmarque. Atributo vira sigla (Insight -> INS), nomes ficam mais curtos (Heluo Clan -> Heluo), rotulos viram
 forma curta (Allocate -> Alloc.). Para mudar uma abreviacao, edite a coluna "Abrev.".
-Caixas de informacao (dica do mouse, resumo, detalhes) nunca sao marcadas pelo automatico: la fica o nome
+Caixas de descricao (a que abre ao passar o mouse, resumo, detalhes) nunca sao marcadas pelo automatico: la fica o nome
 inteiro. Se quiser abreviar uma delas, marque na mao em "Telas apertadas".
 
 LINHA COM VARIOS TERMOS

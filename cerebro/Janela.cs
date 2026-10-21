@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using DColor = System.Drawing.Color;
 
@@ -117,7 +118,7 @@ internal sealed class Janela : Form
         topo.Controls.Add(fechar);
         topo.Resize += delegate { fechar.Location = new Point(topo.Width - fechar.Width - Tema.D(4), Tema.D(6)); };
         lblRodape = new Label { Dock = DockStyle.Bottom, Height = Tema.D(28), ForeColor = Tema.Fraco, Font = Tema.F(8.5f), TextAlign = ContentAlignment.MiddleLeft };
-        corpo = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Tema.Conteudo };
+        corpo = new PainelFixo { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Tema.Conteudo };
         conteudo.Controls.Add(corpo);
         conteudo.Controls.Add(lblRodape);
         conteudo.Controls.Add(topo);
@@ -1063,6 +1064,22 @@ internal sealed class Janela : Form
         ex.Controls.Add(Tema.Botao(LiveTxt.T("limpar_extras"), Tema.D(110), Tema.D(28), 0, delegate { extras.Text = ""; }));
         Dica(ex, LiveTxt.T("estilo_nota"));
 
+        // caixa de teste: a mesma frase sem nada e com o que o jogador escolheu, lado a lado
+        FlowLayoutPanel tst = Cartao(LiveTxt.T("teste_titulo"));
+        Dica(tst, LiveTxt.T("teste_dica"));
+        TextBox entrada = Tema.Caixa(testeTexto, Interna, 3, 300);
+        entrada.TextChanged += delegate { testeTexto = entrada.Text; };
+        tst.Controls.Add(entrada);
+        int meia = (Interna - Tema.D(10)) / 2;
+        FlowLayoutPanel lados = Tema.Linha(Interna);
+        Label semRes, comRes;
+        lados.Controls.Add(LadoTeste(LiveTxt.T("teste_sem"), meia, out semRes));
+        lados.Controls.Add(LadoTeste(LiveTxt.T("teste_com"), meia, out comRes));
+        Button btTestar = null;
+        btTestar = Tema.Botao(LiveTxt.T("teste_bt"), Tema.D(160), Tema.D(30), 1, delegate { TestarEstilo(entrada.Text, semRes, comRes, btTestar); });
+        tst.Controls.Add(btTestar);
+        tst.Controls.Add(lados);
+
         // o jogo (vai no pedido)
         FlowLayoutPanel jogo = Cartao(LiveTxt.T("jogo_titulo"));
         TextBox txtJogo = Tema.Caixa(LiveConfig.Jogo, Interna, 3, 400);
@@ -1074,6 +1091,73 @@ internal sealed class Janela : Form
         };
         jogo.Controls.Add(txtJogo);
         jogo.Controls.Add(Tema.Botao(LiveTxt.T("jogo_padrao"), Tema.D(200), Tema.D(28), 0, delegate { txtJogo.Text = LiveConfig.JogoPadrao; }));
+    }
+
+    private string testeTexto = "";
+
+    private FlowLayoutPanel LadoTeste(string titulo, int largura, out Label resultado)
+    {
+        FlowLayoutPanel f = new FlowLayoutPanel
+        {
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false,
+            AutoSize = true,
+            BackColor = Tema.CorCampo,
+            Padding = new Padding(Tema.D(8)),
+            Margin = new Padding(0, Tema.D(6), Tema.D(10), 0),
+            MinimumSize = new Size(largura, Tema.D(70)),
+            MaximumSize = new Size(largura, 0)
+        };
+        f.Controls.Add(Tema.Rotulo(titulo, largura - Tema.D(16), Tema.Fraco, 8.5f, true));
+        resultado = Tema.Rotulo("", largura - Tema.D(16), Tema.Texto, 9.5f);
+        f.Controls.Add(resultado);
+        return f;
+    }
+
+    // dois pedidos: so as regras fixas (sem nada) e o pedido normal (estilo, instrucoes, opcoes, glossario).
+    // Nao entra no cache nem no glossario.
+    private async void TestarEstilo(string texto, Label sem, Label com, Button bt)
+    {
+        texto = (texto ?? "").Trim();
+        if (texto.Length == 0) return;
+        Provedor p = LiveConfig.Atual;
+        string motivo;
+        if (p.Tipo == 0) { sem.Text = LiveTxt.T("cia_gratis"); return; }
+        if (!Provedores.Configurado(p, out motivo)) { sem.Text = motivo; return; }
+        List<string> l = new List<string> { texto };
+        Pedido a, b;
+        try
+        {
+            Provedores.Teste = true;
+            Provedores.TesteCru = true;
+            a = Provedores.Montar(p, l, 0);
+            Provedores.TesteCru = false;
+            b = Provedores.Montar(p, l, 0);
+        }
+        catch (Exception e) { sem.Text = LiveTxt.F("comp_erro", e.Message); return; }
+        finally { Provedores.Teste = false; Provedores.TesteCru = false; }
+        bt.Enabled = false;
+        sem.Text = com.Text = LiveTxt.T("teste_esperando");
+        sem.ForeColor = com.ForeColor = Tema.Fraco;
+        Task<Resposta> ta = Http.Enviar(a);
+        Task<Resposta> tb = Http.Enviar(b);
+        MostrarTeste(sem, p, l, await ta);
+        MostrarTeste(com, p, l, await tb);
+        if (!bt.IsDisposed) bt.Enabled = true;
+    }
+
+    private static void MostrarTeste(Label lb, Provedor p, List<string> l, Resposta r)
+    {
+        if (lb.IsDisposed) return;   // trocou de aba enquanto esperava
+        if (r.Codigo != 200)
+        {
+            lb.Text = LiveTxt.F("cia_erro", r.Codigo, string.IsNullOrEmpty(r.Erro) ? "" : r.Erro);
+            lb.ForeColor = Tema.Erro;
+            return;
+        }
+        List<string> t = Provedores.Interpretar(p, l, r.Corpo, 0);
+        lb.Text = t != null && t.Count > 0 ? t[0] : LiveTxt.T("teste_falhou");
+        lb.ForeColor = t != null ? Tema.Texto : Tema.Erro;
     }
 
     private void Opcao(FlowLayoutPanel pai, string texto, bool valor, string dica, Action<bool> mudou)
@@ -1132,6 +1216,7 @@ internal sealed class Janela : Form
         topo.Controls.Add(tb);
         topo.Controls.Add(Tema.Botao(LiveTxt.T("glos_novo"), Tema.D(150), Tema.D(28), 1, delegate { NovoTermo(); }));
         topo.Controls.Add(Tema.Botao(LiveTxt.T("abr_telas_bt"), Tema.D(170), Tema.D(28), 0, delegate { Telas(); }));
+        topo.Controls.Add(Tema.Botao(LiveTxt.T("pac_bt"), Tema.D(170), Tema.D(28), 0, delegate { Pacote(); }));
         t.Controls.Add(topo);
         larguraGlos.Clear();
         larguraGlos.Add(new KeyValuePair<Control, int>(topo, 0));
@@ -1499,6 +1584,84 @@ internal sealed class Janela : Form
         }
         if (marcadas == 0) Ponte.Reenviar = true;
         MostrarSelecionado();
+    }
+
+    // pacote xianxia: escolhe os grupos, importa ou remove
+    private void Pacote()
+    {
+        using (Form d = new Form())
+        {
+            d.Text = LiveTxt.T("pac_bt");
+            d.FormBorderStyle = FormBorderStyle.Sizable;
+            d.StartPosition = FormStartPosition.CenterParent;
+            d.ClientSize = new Size(Tema.D(700), Tema.D(600));
+            d.MinimizeBox = false;
+            d.BackColor = Tema.Cartao;
+            d.ForeColor = Tema.Texto;
+            d.Font = Tema.F(9f);
+            int w = Tema.D(640);
+            FlowLayoutPanel f = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(Tema.D(16)) };
+            d.Controls.Add(f);
+            f.Controls.Add(Tema.Rotulo(LiveTxt.T("pac_dica"), w, Tema.Texto, 9f));
+            if (!PacoteXianxia.TemIdioma)
+            {
+                f.Controls.Add(Tema.Rotulo(LiveTxt.T("pac_idioma"), w, Tema.Aviso, 9f));
+                d.ShowDialog(this);
+                return;
+            }
+            List<CheckBox> caixas = new List<CheckBox>();
+            List<Label> contas = new List<Label>();
+            for (int g = 0; g < PacoteXianxia.Grupos; g++)
+            {
+                CheckBox cb = Tema.Marca(LiveTxt.T("pac_g" + g), true, w);
+                cb.Font = Tema.F(9f, true);
+                cb.Margin = new Padding(0, Tema.D(10), 0, 0);
+                caixas.Add(cb);
+                f.Controls.Add(cb);
+                Label ex = Tema.Rotulo(PacoteXianxia.Exemplos(g, 4) + "  …", w - Tema.D(20), Tema.Fraco, 8.5f);
+                ex.Margin = new Padding(Tema.D(20), 0, 0, 0);
+                f.Controls.Add(ex);
+                Label conta = Tema.Rotulo("", w - Tema.D(20), Tema.Fraco, 8f);
+                conta.Margin = new Padding(Tema.D(20), 0, 0, 0);
+                contas.Add(conta);
+                f.Controls.Add(conta);
+            }
+            Action contar = delegate
+            {
+                for (int g = 0; g < contas.Count; g++)
+                    contas[g].Text = LiveTxt.F("pac_conta", PacoteXianxia.Total(g), PacoteXianxia.NoGlossario(g));
+            };
+            contar();
+            Label st = Tema.Rotulo("", w, Tema.Ok, 9f);
+            FlowLayoutPanel bts = Tema.Linha(w);
+            bts.Margin = new Padding(0, Tema.D(14), 0, 0);
+            bts.Controls.Add(Tema.Botao(LiveTxt.T("pac_importar"), Tema.D(200), Tema.D(30), 1, delegate
+            {
+                List<int> gs = new List<int>();
+                for (int g = 0; g < caixas.Count; g++) if (caixas[g].Checked) gs.Add(g);
+                int ja;
+                int n = PacoteXianxia.Importar(gs, out ja);
+                st.Text = LiveTxt.F("pac_importados", n, ja);
+                st.ForeColor = Tema.Ok;
+                contar();
+            }));
+            bts.Controls.Add(Tema.Botao(LiveTxt.T("pac_remover"), Tema.D(200), Tema.D(30), 3, delegate
+            {
+                List<int> gs = new List<int>();
+                for (int g = 0; g < caixas.Count; g++) if (caixas[g].Checked) gs.Add(g);
+                if (MessageBox.Show(d, LiveTxt.T("pac_remover_conf"), LiveTxt.T("pac_bt"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+                int ficam;
+                int n = PacoteXianxia.Remover(gs, out ficam);
+                st.Text = LiveTxt.F("pac_removidos", n, ficam);
+                st.ForeColor = Tema.Aviso;
+                contar();
+            }));
+            f.Controls.Add(bts);
+            f.Controls.Add(st);
+            d.ShowDialog(this);
+        }
+        versaoGrade = -1;
+        PreencherGrade();
     }
 
     // todas as telas vistas nesta sessao: marcar = apertada (a IA abrevia os textos dela e ali vai a versao curta)

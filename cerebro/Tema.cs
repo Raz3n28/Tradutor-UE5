@@ -153,7 +153,7 @@ internal static class Tema
 
     public static CheckBox Marca(string texto, bool marcado, int largura)
     {
-        return new CheckBox
+        CheckBox c = new CheckBox
         {
             Text = texto,
             Checked = marcado,
@@ -165,8 +165,14 @@ internal static class Tema
             FlatStyle = FlatStyle.Standard,
             Font = F(9f),
             Margin = new Padding(0, D(2), 0, D(2)),
-            Cursor = Cursors.Hand
+            Cursor = Cursors.Hand,
+            // troca no apertar do botao (e nao no soltar): se a pagina rolar entre apertar e soltar,
+            // o soltar cai fora da caixa e o Windows ignorava o clique (a caixa "nao desmarcava")
+            AutoCheck = false
         };
+        c.MouseDown += delegate (object s, MouseEventArgs e) { if (e.Button == MouseButtons.Left) c.Checked = !c.Checked; };
+        c.KeyDown += delegate (object s, KeyEventArgs e) { if (e.KeyCode == Keys.Space) { c.Checked = !c.Checked; e.Handled = true; } };
+        return c;
     }
 
     public static NumericUpDown Numero(int min, int max, int valor, int largura)
@@ -205,5 +211,15 @@ internal static class Tema
     public static System.Drawing.Color Cor(global::Color c)
     {
         return c.ParaDrawing();
+    }
+}
+
+// Painel com rolagem que nao pula sozinho quando um controle de dentro ganha o foco
+// (o WinForms rola ate o controle e o clique caia fora dele)
+internal sealed class PainelFixo : Panel
+{
+    protected override Point ScrollToControl(Control activeControl)
+    {
+        return DisplayRectangle.Location;
     }
 }

@@ -72,10 +72,12 @@ internal static class LiveConfig
     // nome, instrucao (em ingles, enviada junto com as regras fixas)
     public static readonly string[][] Estilos = new string[][]
     {
-        new string[] { "Padrao (fiel e curto)", "Translate faithfully but keep each text short and clear, because UI space is limited. Use natural wording for the target language." },
-        new string[] { "Natural / conversado", "Translate in a natural, fluent, conversational way, like a professional game localization. Prefer idiomatic phrasing over word-for-word translation." },
-        new string[] { "Literal", "Translate as literally and accurately as possible, staying close to the source wording. Do not paraphrase." },
-        new string[] { "Bem curto (botoes)", "Make every translation as short as possible (abbreviate if needed) so it fits small buttons and labels, without losing the meaning." }
+        // quem paga a IA quer ler algo com sentido: nao ha mais estilo literal (o Google gratis ja faz isso)
+        new string[] { "Natural (localizacao de jogo)", "Translate like a professional game localization: natural, fluent and idiomatic in the target language. Convey the meaning and the tone, not the literal wording; adapt Chinese idioms to natural equivalents. Keep UI texts concise." },
+        new string[] { "Legenda de donghua", "Translate the way a skilled subtitler of Chinese donghua would. Understand what each character means and write it the way a native speaker would really say it. Give every character a consistent voice (a calm old master, an arrogant rival, a playful friend...), using the recent lines as context. Adapt Chinese idioms and sayings to natural equivalents instead of translating them word for word. Keep lines short and quick to read; no semicolons in speech. Keep UI texts concise." },
+        new string[] { "Epico / wuxia", "Translate with the epic, solemn tone of a classic wuxia saga: respectful forms of address (senior, young master, this humble one...), elevated but clear wording, still natural and easy to read. Keep UI texts concise." },
+        new string[] { "Casual", "Translate in a relaxed, casual tone, the way gamers talk: natural and easy to read, but keep names and game terms accurate. Keep UI texts concise." },
+        new string[] { "Bem curto (textos curtos)", "Make every translation as short as possible (abbreviate if needed) so it fits small spaces, without losing the meaning." }
     };
 
     public static bool Ativo = false;     // sempre abre pausado: o jogador aperta "Comecar traducao" no menu
@@ -219,7 +221,9 @@ internal static class LiveConfig
             else if (k == "tecla_alternar") { if (int.TryParse(v, out n)) TeclaAlternar = n; }
             else if (k == "escala") { if (int.TryParse(v, out n)) Escala = Mathf.Clamp(n, 80, 160); }
             else if (k == "menu_idioma") { if (int.TryParse(v, out n)) LiveTxt.Atual = n; }
-            else if (k == "estilo") { if (int.TryParse(v, out n)) Estilo = Mathf.Clamp(n, 0, Estilos.Length - 1); }
+            // "estilo" = lista antiga (0 padrao, 1 natural, 2 literal, 3 bem curto): tudo vira Natural, menos o bem curto
+            else if (k == "estilo") { if (int.TryParse(v, out n)) Estilo = n == 3 ? 4 : 0; }
+            else if (k == "estilo_v2") { if (int.TryParse(v, out n)) Estilo = Mathf.Clamp(n, 0, Estilos.Length - 1); }
             else if (k == "prompt") PromptExtra = v.Replace("\\n", "\n");
             else if (k == "jogo") { if (v.Length > 0) Jogo = v; }
             else if (k.StartsWith("chave.")) Chaves[k.Substring(6)] = v;
@@ -255,7 +259,7 @@ internal static class LiveConfig
             sb.AppendLine("tecla_alternar=" + TeclaAlternar);
             sb.AppendLine("escala=" + Escala);
             sb.AppendLine("menu_idioma=" + LiveTxt.Atual);
-            sb.AppendLine("estilo=" + Estilo);
+            sb.AppendLine("estilo_v2=" + Estilo);
             sb.AppendLine("jogo=" + (Jogo ?? "").Replace("\r", " ").Replace("\n", " "));
             sb.AppendLine("prompt=" + (PromptExtra ?? "").Replace("\r", "").Replace("\n", "\\n"));
             foreach (KeyValuePair<string, string> kv in Chaves) sb.AppendLine("chave." + kv.Key + "=" + kv.Value);

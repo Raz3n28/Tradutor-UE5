@@ -457,6 +457,12 @@ internal static class Provedores
         return r;
     }
 
+    // Caixa de teste da aba Estilo (o pedido e montado na hora, entao basta ligar antes e desligar depois):
+    // TesteCru = so as regras fixas (sem estilo, instrucoes, opcoes, categorias, glossario);
+    // Teste = sem o contexto das ultimas frases do jogo (o texto do teste nao veio do jogo).
+    public static bool TesteCru;
+    public static bool Teste;
+
     // Regras fixas (garantem o formato da resposta) + estilo escolhido pelo jogador
     // + termos do glossario que aparecem nos textos + textos recentes como contexto.
     public static string PromptSistema(List<string> textos)
@@ -475,8 +481,8 @@ internal static class Provedores
         // seguindo a instrucao dessa categoria. Lote com frase (e "extrair termos" ligado): a IA tambem devolve
         // os nomes proprios e termos do jogo que achou dentro das frases (alimenta o glossario).
         // Nenhum dos dois: formato simples (gasta menos).
-        bool comCategoria = TemTermo(textos);
-        bool comTermos = LiveConfig.ExtrairTermos && TemFrase(textos);
+        bool comCategoria = !TesteCru && TemTermo(textos);
+        bool comTermos = !TesteCru && LiveConfig.ExtrairTermos && TemFrase(textos);
         if (comCategoria || comTermos)
         {
             sb.Append("Reply with ONLY a JSON object {\"t\": [...]");
@@ -497,6 +503,7 @@ internal static class Provedores
         }
         else
             sb.Append("Reply with ONLY a JSON array of strings, with exactly the same number of items and the same order as the input.");
+        if (TesteCru) return sb.ToString();
 
         int e = LiveConfig.Estilo;
         if (e < 0 || e >= LiveConfig.Estilos.Length) e = 0;
@@ -548,7 +555,7 @@ internal static class Provedores
         }
 
         // contexto: o que apareceu na tela pouco antes (ajuda em dialogos: genero, tratamento, assunto)
-        List<string[]> recentes = LiveMotor.Recentes(textos);
+        List<string[]> recentes = Teste ? new List<string[]>() : LiveMotor.Recentes(textos);
         if (recentes.Count > 0)
         {
             sb.Append("\nRecent text shown in the game just before, with its translation. Context only: do NOT translate it again and do NOT include it in your reply:");
