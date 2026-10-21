@@ -1,0 +1,34 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Compilar o cerebro
+        run: dotnet publish cerebro/TradutorCerebro.csproj -c Release -o saida/cerebro
+
+      - name: Montar o pacote
+        shell: pwsh
+        run: |
+          $mod = "saida/pacote/ue4ss/Mods/TradutorUE5"
+          New-Item -ItemType Directory -Force "$mod/cerebro", "$mod/troca" | Out-Null
+          Copy-Item -Recurse ponte/TradutorUE5/* $mod
+          Copy-Item saida/cerebro/TradutorCerebro.exe "$mod/cerebro/"
+          Set-Content "$mod/troca/LEIA.txt" "Pasta de conversa entre o jogo e o tradutor. Pode ignorar."
+          Copy-Item LEIA-ME.txt saida/pacote/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TradutorUE5
+          path: saida/pacote/

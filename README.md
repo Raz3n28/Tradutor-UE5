@@ -21,3 +21,11 @@ jogo (UE5) ── UE4SS ── ponte Lua ──(arquivos em troca/)── Tradut
 
 O GitHub Actions compila a cada push e gera o artefato **TradutorUE5** (zip pronto para copiar em
 `Binaries\Win64`). Veja `LEIA-ME.txt` para instalar.
+
+## Direitos autorais
+
+© 2026 Raz3n. Todos os direitos reservados. Uso pessoal liberado; redistribuir, vender ou publicar
+versões modificadas só com autorização. Veja [`LICENSE`](LICENSE).
+
+© 2026 Raz3n. All rights reserved. Free for personal use; redistribution, selling or publishing
+modified versions requires permission. See [`LICENSE`](LICENSE).

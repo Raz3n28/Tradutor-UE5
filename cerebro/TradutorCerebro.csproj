@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <AssemblyName>TradutorCerebro</AssemblyName>
+    <RootNamespace>TradutorCerebro</RootNamespace>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <!-- um .exe so, leve: precisa do .NET 8 Desktop Runtime (x64) instalado no PC -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <DebugType>none</DebugType>
+    <Version>0.5.1</Version>
+  </PropertyGroup>
+
+  <!-- imagens do menu (montanhas, textura do apoio, QR de apoio) vao dentro do .exe -->
+  <ItemGroup>
+    <EmbeddedResource Include="img\*.png" LogicalName="%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

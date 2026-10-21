@@ -1,0 +1,112 @@
+TRADUTOR UE5 - traducao ao vivo para jogos em Unreal Engine 5 (primeiro jogo: Sanctum: Whispers of Qingcheng)
+
+INSTALAR
+0. Precisa do .NET 8 Desktop Runtime (Windows x64): https://dotnet.microsoft.com/download/dotnet/8.0
+   (para conferir: no cmd, "dotnet --list-runtimes" deve mostrar Microsoft.WindowsDesktop.App 8.x)
+1. Instale o UE4SS (versao experimental mais recente) na pasta do jogo:
+   ...\QingCheng\Binaries\Win64\  (onde fica o QingCheng-Win64-Shipping.exe)
+   Ali devem ficar o dwmapi.dll e a pasta ue4ss.
+   Sanctum (UE 5.8): o UE4SS trava ou crasha o jogo com os ganchos padrao. No ue4ss\UE4SS-settings.ini,
+   secao [Hooks], deixe so HookLoadMap = 1 e HookEngineTick = 1; todos os outros Hook... = 0.
+   No ue4ss\Mods\mods.txt os mods de exemplo do UE4SS podem ficar todos em 0 (o tradutor nao usa).
+2. Copie a pasta "ue4ss" deste zip para a mesma pasta Binaries\Win64 (junta com a do UE4SS).
+3. Abra o jogo. O tradutor (TradutorCerebro.exe) abre sozinho, escondido.
+4. No jogo, aperte F8: abre o menu do tradutor. Escolha o idioma e o servico e clique em "Comecar traducao".
+
+ONDE FICAM AS COISAS
+ue4ss\Mods\TradutorUE5\dados\   config.txt, cache_<idioma>.txt, glossario_<idioma>.txt, log.txt
+ue4ss\UE4SS.log                 log do UE4SS (linhas [TradutorUE5])
+
+O tradutor fecha sozinho quando o jogo fecha.
+
+SE ALGO DER ERRADO
+- Jogo trava ou fecha ao abrir: confira o [Hooks] do passo 1.
+- O tradutor nao abre: instale o .NET 8 Desktop Runtime (x64).
+- Traducao estranha ou velha: Configuracoes > Limpar cache (o que voce travou fica).
+- Para pedir ajuda: Configuracoes > Gerar relatorio de erro (junta os logs num .zip).
+
+MENU (F8)
+00 Como usar   guia de cada aba: para que serve e o que faz cada opcao (abre sozinho na primeira vez)
+01 Painel      resumo: estado, modo, idioma, glossario, cache, ponte, gasto da chave, versao nova e ultimas traducoes
+02 Geral       comecar/pausar, modo gratis ou com chave, idioma de destino, o que traduzir
+03 Provedor    servico de IA, URL, chave e modelo; "Testar conexao"
+04 Estilo      estilo pronto, como a IA traduz, instrucoes extras, o texto sobre o jogo e "Testar o estilo"
+05 Glossario   lista a esquerda e painel do termo a direita (traducao, abreviacao, categoria, travar,
+               sugestoes da IA); botoes Telas apertadas e Pacote xianxia; ajuda no "?"
+06 Falas e descricoes  falas de cada personagem, descricao de cada item e missao: editar, travar, retraduzir
+07 Categorias  13 categorias de cultivo (Personagem, Lugar, Seita, Reino, Tecnica, Pilula, Artefato, Item,
+               Atributo, Missao, Menu, Titulo, Outros) + ate 8 suas; palavras-chave e instrucao para a IA
+08 Configuracoes  ritmo, tecla F9, pacote de traducao (.zip), relatorio de erro, gasto da chave, backup, cache
+09 Log         o que o tradutor esta fazendo
+10 Interface   tamanho da janela do menu
+Embaixo, a esquerda: Apoie o projeto (Ko-fi e Pix) e o idioma do menu (PT EN ES RU FR DE).
+
+SUGERIR TRADUCOES (modo com chave)
+No Glossario, selecione um ou varios termos e aperte "Sugerir traducoes": a IA da 3 ou 4 opcoes, cada uma
+com o jeito dela (pelo sentido, mantendo o nome em pinyin, mais curta...). "usar" = vira a traducao travada e
+o jogo troca na hora.
+
+FALAS E DESCRICOES
+Conforme voce joga, as falas entram agrupadas por quem fala (e as descricoes pelo item ou missao). Edite e
+"Salvar e travar" (fica mesmo se limpar o cache), "Retraduzir" pede outra versao a IA, "Mover para..." corrige
+o grupo se a ligacao automatica errar. Narracao sem nome fica em Outros.
+
+PACOTE DE TRADUCAO, BACKUP E RELATORIO (Configuracoes)
+- Exportar pacote (.zip): glossario (com abreviacoes), traducoes, falas editadas e telas apertadas. Quem
+  importar joga traduzido sem gastar IA. Importar so acrescenta.
+- Backup: uma copia do glossario por dia (ultimas 7) em dados\backup; "Restaurar este dia" volta uma delas.
+- Gerar relatorio de erro: .zip na Area de Trabalho com os logs do tradutor, do UE4SS e do jogo e o ultimo
+  crash (sem as chaves de API). Nada e enviado sozinho.
+- Gasto da chave: os tokens vem da resposta da IA; coloque o preco do seu modelo para ver o custo estimado.
+
+UM JOGO, UMA PASTA
+Cada jogo tem o seu mod (ue4ss\Mods\TradutorUE5), entao glossario, traducoes, estilo e falas ficam separados
+por jogo. Para levar a traducao de um jogo, use o pacote de traducao.
+
+GLOSSARIO INTELIGENTE (modo com chave)
+- A categoria de cada termo sai do nome do widget no jogo, do fim do termo em chines (丹 pilula, 派 seita,
+  山 lugar, 诀 tecnica...) e, no modo com chave, da propria IA.
+- A IA tambem devolve os nomes proprios que achou dentro das frases (dialogos): eles entram no glossario.
+- Novo: a IA traduziu uma vez. Confirmado: repetiu a mesma traducao 3 vezes. Travado: voce editou/travou.
+- Frase com termo travado ou confirmado: se a traducao nao usou a forma salva, ela e refeita uma vez.
+- A IA deu outra traducao para um termo: aparece como Conflito (filtro "Conflitos"); voce escolhe qual fica.
+- Glossarios e categorias da versao anterior sao convertidos sozinhos para as categorias novas.
+
+TEXTO QUE NAO CABE
+- Estilo > "Traducoes curtas onde o espaco e curto" (ligado): a IA tenta caber no espaco do original.
+
+ESTILOS (aba Estilo, modo com chave)
+Natural (padrao, como traducao oficial), Legenda de donghua (fala com sentido, cada personagem com sua voz),
+Epico / wuxia, Casual e Bem curto. "Testar o estilo": cole uma fala do jogo e veja lado a lado a traducao
+sem nada e com o que voce escolheu (gasta 2 pedidos; nao entra no cache nem no glossario).
+
+PACOTE XIANXIA (opcional)
+Glossario > "Pacote xianxia": cerca de 370 termos de cultivo (reinos, titulos, seitas, corpo e energia, itens,
+tecnicas, criaturas e mundo) em PT-BR e EN. Marque os grupos e importe; entram sem trava e nao trocam o que
+voce ja tem. "Remover marcados" tira so o que veio do pacote (o que voce editou ou travou fica).
+
+CONFIGURACOES DE VIDEO
+Ao aplicar configuracoes de video a ponte para por 6 s (o jogo refaz as telas nessa hora).
+
+ABREVIACOES (texto que nao cabe, com o nome inteiro na caixa de descricao)
+Jeito rapido: jogue com o tradutor aberto passando pelas telas que estouram. No Glossario filtre (ex.: Atributo),
+aperte "Selecionar tudo" e depois "Abreviar e mostrar": a IA abrevia (modo com chave) e as listas onde esses
+termos aparecem ficam apertadas. A caixa de descricao (a que abre ao passar o mouse) continua com o nome inteiro.
+Jeito manual: Glossario > "Telas apertadas" mostra cada tela pelos textos dela (antes -> depois); marque ou
+desmarque. Atributo vira sigla (Insight -> INS), nomes ficam mais curtos (Heluo Clan -> Heluo), rotulos viram
+forma curta (Allocate -> Alloc.). Para mudar uma abreviacao, edite a coluna "Abrev.".
+Caixas de descricao (a que abre ao passar o mouse, resumo, detalhes) nunca sao marcadas pelo automatico: la fica o nome
+inteiro. Se quiser abreviar uma delas, marque na mao em "Telas apertadas".
+
+LINHA COM VARIOS TERMOS
+"伏羲脉 · 河洛氏 · 无根浮萍": cada parte e traduzida sozinha (pelo glossario) e a linha e montada de novo.
+
+MEMORIA DE EXEMPLOS (modo com chave)
+Os termos que voce travou (ou editou) viram modelo: quando chega um termo novo parecido (mesmo final em
+chines, mesma categoria), ele vai junto no pedido para a IA seguir o seu padrao.
+Ex.: travou 青城派 = "Seita Qingcheng" -> o 峨眉派 novo sai "Seita Emei". Liga/desliga na aba Estilo.
+
+TECLA DE PAUSAR / CONTINUAR
+Aba Configuracoes > Teclas (padrao F9). Funciona com o jogo na frente, sem abrir o menu; um som avisa
+(agudo = traduzindo, grave = pausado). E uma tecla global do Windows: enquanto o tradutor estiver aberto,
+ela nao chega no jogo nem em outros programas. F8 continua sendo a tecla do menu.
