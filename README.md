@@ -1,5 +1,7 @@
 # Universal Translator UE5
 
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20me-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/C1P628Z6GT)
+
 🇺🇸 **English** · 🇧🇷 [Português (BR)](README.pt-BR.md)
 
 Real-time translation for Unreal Engine 5 games, ported from
@@ -87,6 +89,17 @@ game (UE5) ── UE4SS ── Lua bridge ──(files in troca/)── Tradutor
 
 GitHub Actions builds on every push and produces the **TradutorUE5** artifact (a zip ready to copy into
 `Binaries\Win64`).
+
+## Support the project
+
+Like the mod? A coffee helps keep it going (AI tokens and testing time aren't free). Thank you! 💙
+
+<table>
+<tr>
+<td align="center"><b>Ko-fi</b><br><a href="https://ko-fi.com/C1P628Z6GT"><img src="cerebro/img/kofi-qr.png" width="180" alt="Ko-fi QR"></a><br><a href="https://ko-fi.com/C1P628Z6GT">ko-fi.com/C1P628Z6GT</a></td>
+<td align="center"><b>Pix (Brazil)</b><br><img src="cerebro/img/pix-qr.png" width="180" alt="Pix QR"><br>Random key:<br><code>1cf0c1a4-c729-48b2-9498-ff30b8b4dc89</code></td>
+</tr>
+</table>
 
 ## Copyright
 
