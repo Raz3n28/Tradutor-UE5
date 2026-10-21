@@ -1,5 +1,7 @@
 # Tradutor UE5
 
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-Apoie-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/C1P628Z6GT) [![Pix](https://img.shields.io/badge/Pix-Apoie-32BCAD?logo=pix&logoColor=white)](#apoie-o-projeto)
+
 🇺🇸 [English](README.md) · 🇧🇷 **Português (BR)**
 
 Tradução em tempo real para jogos em Unreal Engine 5, portada do
@@ -88,6 +90,17 @@ jogo (UE5) ── UE4SS ── ponte Lua ──(arquivos em troca/)── Tradut
 
 O GitHub Actions compila a cada push e gera o artefato **TradutorUE5** (zip pronto para copiar em
 `Binaries\Win64`). Veja `LEIA-ME.txt` para instalar.
+
+## Apoie o projeto
+
+Curtiu o mod? Um cafezinho ajuda a manter o desenvolvimento (tokens de IA e tempo de teste não são de graça). Valeu! 💙
+
+<table>
+<tr>
+<td align="center"><b>Ko-fi</b><br><a href="https://ko-fi.com/C1P628Z6GT"><img src="cerebro/img/kofi-qr.png" width="180" alt="Ko-fi QR"></a><br><a href="https://ko-fi.com/C1P628Z6GT">ko-fi.com/C1P628Z6GT</a></td>
+<td align="center"><b>Pix</b><br><img src="cerebro/img/pix-qr.png" width="180" alt="Pix QR"><br>Chave aleatória:<br><code>1cf0c1a4-c729-48b2-9498-ff30b8b4dc89</code></td>
+</tr>
+</table>
 
 ## Direitos autorais
 
