@@ -284,6 +284,10 @@ internal static class Ponte
                 string lq = Desescapar(p[1]);
                 if (q > Vezes(lq)) vezes[lq] = q;
                 break;
+            case "V":
+                if (p.Length < 3) return;
+                Falas.Visto(Desescapar(p[1]), Desescapar(p[2]), p.Length > 3 ? Desescapar(p[3]) : "");
+                break;
             case "M":
                 if (MenuPedido != null) MenuPedido();
                 break;
@@ -329,6 +333,22 @@ internal static class Ponte
             respondidos[Miolo(b)] = nova;
             saida.Append("R\t").Append(Escapar(b)).Append('\t').Append(Escapar(r)).Append('\n');
         }
+    }
+
+    // fala editada no menu: manda a traducao nova para a tela agora
+    public static void MandarTraducao(string texto, string traducao)
+    {
+        if (string.IsNullOrEmpty(texto) || string.IsNullOrEmpty(traducao)) return;
+        respondidos[Miolo(texto)] = Miolo(traducao);
+        brutos.Add(texto);
+        saida.Append("R\t").Append(Escapar(texto)).Append('\t').Append(Escapar(traducao)).Append('\n');
+    }
+
+    // Retraduzir: a resposta nova vai para a ponte quando a IA devolver (fica esperando)
+    public static void Refazer(string texto)
+    {
+        if (string.IsNullOrEmpty(texto)) return;
+        esperando[texto] = "";
     }
 
     // abreviacoes do texto para as telas apertadas

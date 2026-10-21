@@ -5,6 +5,8 @@
 -- Conversa com o cerebro por dois arquivos na pasta "troca" (ver cerebro/Ponte.cs):
 --   pedidos.txt   (ponte -> cerebro)  T<TAB>texto<TAB>pista | L<TAB>texto<TAB>lugar | M (menu) | I (jogo abriu)
 --                                     Q<TAB>lugar<TAB>n (o lugar ja mostrou n textos ao mesmo tempo: lista)
+--                                     V<TAB>nome<TAB>texto<TAB>lugar (nome curto e texto longo juntos na mesma caixa:
+--                                       quem fala / nome do item + a fala / descricao; menu Falas e descricoes)
 --   respostas.txt (cerebro -> ponte)  R<TAB>texto<TAB>traducao | N<TAB>texto | X (devolver originais)
 --                                     C<TAB>lugar<TAB>texto<TAB>abreviacao | K (esquecer as abreviacoes)
 -- Abreviacoes mudaram: o cerebro manda K + todas as C de novo, e a ponte troca so os textos afetados
@@ -85,6 +87,9 @@ local ehCurta = {}    -- abreviacao -> true (para voltar a traducao inteira quan
 local mudou = {}      -- original -> true: a traducao mudou (jogador editou/escolheu outra) e a tela troca
 local avisados = {}   -- lugar .. "\1" .. original -> true (cerebro ja sabe que o texto aparece ali)
 local nesta = {}      -- lugar -> quantos textos dele nesta passada
+local caixas = {}     -- endereco -> { caixa de dentro, caixa de fora } (widget blueprint dono do texto)
+local grupos1, grupos2 = {}, {}   -- nesta passada: caixa -> lista de { o = original, l = lugar }
+local pares = {}      -- texto longo -> true (ja avisado com o nome dele)
 local maximo = {}     -- lugar -> maior quantidade ja avisada ao cerebro
 local devolver = false   -- o cerebro mandou devolver os originais (feito no proximo ciclo, na lista viva)
 local saida = {}      -- linhas para pedidos.txt
@@ -218,6 +223,10 @@ local function EhDeVerdade(w, endereco)
     if nome ~= "" and not nome:find("Default__", 1, true) and not nome:find("_C:WidgetTree", 1, true)
         and not DaTelaDeCarregamento(nome) then
         r = Lugar(nome)
+        -- caixas (instancias de widget blueprint) que contem o texto: a de dentro e a de fora
+        local c1, c2
+        for seg in nome:gmatch("[^%.:/ ]+_C_%d+") do c2 = c1; c1 = seg end
+        caixas[endereco] = { c1, c2 }
     else
         r = false
     end
@@ -249,6 +258,13 @@ local function Processar(w, endereco)
     local txt = Texto(w)
     if txt == nil or txt == "" then return end
     if lugar ~= "" then nesta[lugar] = (nesta[lugar] or 0) + 1 end
+    local cx = caixas[endereco]
+    if cx then
+        local orig = nossas[txt] or txt
+        local item = { o = orig, l = lugar, c2 = cx[2] }
+        if cx[1] then local g = grupos1[cx[1]] or {}; g[#g + 1] = item; grupos1[cx[1]] = g end
+        if cx[2] then local g = grupos2[cx[2]] or {}; g[#g + 1] = item; grupos2[cx[2]] = g end
+    end
     local o = nossas[txt]
     if o then
         Avisar(o, lugar)
@@ -287,8 +303,64 @@ local function Processar(w, endereco)
 end
 
 -- passa por todos os textos vivos
+-- tamanho em letras (utf8) e se parece frase / nome
+local function Letras(s)
+    if utf8 and utf8.len then
+        local ok, n = pcall(utf8.len, s)
+        if ok and n then return n end
+    end
+    return #s / 3
+end
+local PONTUACAO = { "，", "。", "！", "？", "：", "；", ",", ".", "!", "?", ":", ";", "\n" }
+local function TemPontuacao(s)
+    for _, p in ipairs(PONTUACAO) do if s:find(p, 1, true) then return true end end
+    return false
+end
+local function EhNome(s)
+    local n = Letras(s)
+    return n >= 1 and n <= 12 and not TemPontuacao(s) and not s:match("^[%d%s%p]+$")
+end
+local function EhLongo(s)
+    local n = Letras(s)
+    return n >= 8 and (TemPontuacao(s) or n >= 16)
+end
+
+-- o melhor "nome" do grupo: texto curto, de preferencia num widget chamado name/title/speaker
+local function NomeDo(g, it)
+    local achou = nil
+    for _, n in ipairs(g) do
+        if n ~= it and EhNome(n.o) then
+            local l = n.l or ""
+            if l:find("name", 1, true) or l:find("titl", 1, true) or l:find("speaker", 1, true) then return n.o end
+            achou = achou or n.o
+        end
+    end
+    return achou
+end
+
+-- nome curto + texto longo na mesma caixa: avisa o cerebro (uma vez por par)
+local function AvisarPares()
+    local feitos = 0
+    for _, g in pairs(grupos1) do
+        for _, it in ipairs(g) do
+            if feitos < 20 and not pares[it.o] and EhLongo(it.o) then
+                local nome = NomeDo(g, it)
+                -- nome numa caixa vizinha (mesma caixa de fora)
+                local g2 = it.c2 and grupos2[it.c2]
+                if not nome and g2 then nome = NomeDo(g2, it) end
+                if nome then
+                    pares[it.o] = true
+                    feitos = feitos + 1
+                    Enviar("V\t" .. Escapar(nome) .. "\t" .. Escapar(it.o) .. "\t" .. Escapar(it.l or ""))
+                end
+            end
+        end
+    end
+end
+
 local function Passar()
     nesta = {}
+    grupos1, grupos2 = {}, {}
     for _, cls in ipairs(CLASSES) do
         local lista = FindAllOf(cls)
         if lista then
@@ -301,6 +373,7 @@ local function Passar()
             end
         end
     end
+    pcall(AvisarPares)
     -- lugar que mostra varios textos juntos e lista (atributos, clas...); a dica do mouse mostra um so
     for lugar, n in pairs(nesta) do
         if n > (maximo[lugar] or 0) and (maximo[lugar] or 0) < 50 then
@@ -340,6 +413,7 @@ local function Varrer()
     local agora = os.clock()
     if agora >= proxLimpeza then
         naTela = {}
+        caixas = {}
         proxLimpeza = agora + 30
     end
     Passar()

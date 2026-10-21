@@ -32,6 +32,10 @@ internal static class Program
             catch (Exception e) { LiveLog.Erro("le_carregar", e, LiveLog.T("it_cat")); }
             try { Glossario.Carregar(); }
             catch (Exception e) { LiveLog.Erro("le_carregar", e, LiveLog.T("it_glos")); }
+            try { Falas.Carregar(); }
+            catch (Exception e) { LiveLog.Erro("le_carregar", e, "falas"); }
+            try { Backup.Diario(); }
+            catch (Exception e) { LiveLog.Erro("le_gravar", e, "backup"); }
             LiveLog.Info("lg_pronto");
 
             ApplicationConfiguration.Initialize();

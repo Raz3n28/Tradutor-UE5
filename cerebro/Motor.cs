@@ -269,6 +269,8 @@ internal static class LiveMotor
     {
         if (!LiveConfig.Ativo || string.IsNullOrEmpty(s)) return null;
         string r;
+        // fala/descricao que o jogador editou (menu Falas e descricoes): vale antes de tudo
+        if (Falas.Travada(s, out r)) { Lembrar(nossas, r); return r; }
         string sub;
         if (substituicoes.TryGetValue(s, out sub))
         {
@@ -327,6 +329,38 @@ internal static class LiveMotor
             if (!amostras.ContainsKey(tpl)) amostras[tpl] = s;
         }
         return null;
+    }
+
+    // traducao que ja existe para o texto (sem por na fila e sem mexer em nada); null se nao tem
+    public static string Consultar(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return null;
+        string r;
+        if (Falas.Travada(s, out r)) return r;
+        if (memo.TryGetValue(s, out r)) return r;
+        List<string> itens = new List<string>();
+        string tpl = Proteger(s, itens);
+        string tr;
+        if (Glossario.TryGet(tpl, out tr) || TradCache.TryGet(tpl, out tr))
+        {
+            bool ok;
+            string res = Restaurar(tr, itens, out ok);
+            return ok ? res : null;
+        }
+        return null;
+    }
+
+    // pede a IA uma traducao nova para o texto (botao Retraduzir): esquece a da memoria e do cache e poe na fila
+    public static void Refazer(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return;
+        memo.Remove(s);
+        List<string> itens = new List<string>();
+        string tpl = Proteger(s, itens);
+        TradCache.Esquecer(tpl);
+        falhou.Remove(tpl);
+        ignorados.Remove(s);
+        TraduzirInterno(s, null);
     }
 
     // Linha com 2+ partes separadas por "·" (ou ・ • ｜), cada uma um termo curto?

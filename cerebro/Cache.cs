@@ -113,6 +113,12 @@ internal static class TradCache
         return mapa.TryGetValue(chave, out valor);
     }
 
+    // so na memoria: a traducao nova (que vai chegar) e gravada depois e vale ao carregar (a ultima linha vence)
+    public static void Esquecer(string chave)
+    {
+        mapa.Remove(chave);
+    }
+
     public static void Add(string chave, string valor)
     {
         mapa[chave] = valor;
