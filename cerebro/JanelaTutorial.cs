@@ -1,71 +1,51 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
-using DColor = System.Drawing.Color;
 
-// 00 Como usar: tutorial passo a passo (imagem + texto curto + Anterior/Proximo + botao para a aba certa).
-// Abre sozinho na primeira vez (LiveConfig.TutorialVisto).
+// 00 Como usar: guia das abas, so texto. Um botao por aba; cada um mostra para que ela serve
+// e o que faz cada opcao. Abre sozinho na primeira vez (LiveConfig.TutorialVisto).
 internal sealed partial class Janela
 {
-    private const int PassosTutorial = 9;
-    private int passo;
-    // aba que cada passo abre (-1 = nenhuma)
-    private static readonly int[] abaDoPasso = new int[] { -1, -1, AbaPainel, AbaProv, AbaPainel, AbaEstilo, AbaGlos, AbaGlos, AbaAvanc };
+    private int passo = AbaPainel;   // aba explicada agora (AbaPainel..AbaInterface)
 
     private void PaginaTutorial()
     {
-        passo = Mathf.Clamp(passo, 0, PassosTutorial - 1);
+        passo = Mathf.Clamp(passo, AbaPainel, AbaInterface);
         FlowLayoutPanel c = Cartao(null);
-        Tema.Papel(c);
 
-        // bolinhas: em que passo esta (clicaveis)
-        FlowLayoutPanel bolas = Tema.Linha(Interna);
-        for (int i = 0; i < PassosTutorial; i++)
+        c.Controls.Add(Tema.Rotulo(LiveTxt.T("guia_intro"), Interna, Tema.Fraco, 9.5f));
+
+        // um botao por aba (quebra a linha se nao couber)
+        FlowLayoutPanel abas = Tema.Linha(Interna);
+        abas.Margin = new Padding(0, Tema.D(6), 0, Tema.D(8));
+        for (int i = AbaPainel; i <= AbaInterface; i++)
         {
             int idx = i;
-            Button b = Tema.Botao((i + 1).ToString(), Tema.D(30), Tema.D(30), i == passo ? 2 : (i < passo ? 1 : 0), delegate { passo = idx; MostrarAba(AbaTutorial); });
-            b.Font = Tema.F(9f, true);
-            Tema.Arredondar(b, Tema.D(15));
-            b.Margin = new Padding(0, 0, Tema.D(6), Tema.D(10));
-            bolas.Controls.Add(b);
+            string rot = i.ToString("00") + "  " + LiveTxt.T(NomesAbas[i]);
+            bool sel = i == passo;
+            Button b = Tema.Botao(rot, Tema.D(28) + TextRenderer.MeasureText(rot, Tema.F(9f, sel)).Width, Tema.D(30), sel ? 1 : 0, delegate { passo = idx; MostrarAba(AbaTutorial); });
+            abas.Controls.Add(b);
         }
-        c.Controls.Add(bolas);
+        c.Controls.Add(abas);
 
-        Label tit = Tema.Rotulo(LiveTxt.T("tut" + (passo + 1) + "_t"), Interna, Tema.Dourado, 15f, true);
-        c.Controls.Add(tit);
-
-        int ih = Math.Min(Tema.D(320), Interna * 320 / 720);
-        PictureBox img = new PictureBox
-        {
-            Image = Tema.Imagem("tut" + (passo + 1) + ".png"),
-            SizeMode = PictureBoxSizeMode.Zoom,
-            Size = new Size(Interna, ih),
-            BackColor = DColor.Transparent,
-            Margin = new Padding(0, Tema.D(6), 0, Tema.D(10))
-        };
-        c.Controls.Add(img);
-
-        Label txt = Tema.Rotulo(LiveTxt.T("tut" + (passo + 1) + "_x"), Interna, Tema.Texto, 10.5f);
+        c.Controls.Add(Tema.Rotulo(passo.ToString("00") + "  " + LiveTxt.T(NomesAbas[passo]), Interna, Tema.Dourado, 15f, true));
+        Label txt = Tema.Rotulo(LiveTxt.T("guia" + passo), Interna, Tema.Texto, 10.5f);
+        txt.Margin = new Padding(0, Tema.D(6), 0, Tema.D(4));
         c.Controls.Add(txt);
 
         FlowLayoutPanel nav = Tema.Linha(Interna);
         nav.Margin = new Padding(0, Tema.D(14), 0, 0);
         Button ant = Tema.Botao("◀ " + LiveTxt.T("tut_ant"), Tema.D(140), Tema.D(34), 0, delegate { passo--; MostrarAba(AbaTutorial); });
-        ant.Enabled = passo > 0;
+        ant.Enabled = passo > AbaPainel;
         nav.Controls.Add(ant);
-        bool ultimo = passo == PassosTutorial - 1;
-        nav.Controls.Add(Tema.Botao(ultimo ? LiveTxt.T("tut_fim") + " ✓" : LiveTxt.T("tut_prox") + " ▶", Tema.D(160), Tema.D(34), 1, delegate
-        {
-            if (ultimo) { passo = 0; MostrarAba(AbaPainel); }
-            else { passo++; MostrarAba(AbaTutorial); }
-        }));
-        int alvo = abaDoPasso[passo];
-        if (alvo >= 0)
-        {
-            Button ir = Tema.Botao("↗ " + LiveTxt.F("tut_ir", LiveTxt.T(NomesAbas[alvo])), Tema.D(240), Tema.D(34), 0, delegate { MostrarAba(alvo); });
-            ir.Margin = new Padding(Tema.D(20), 0, 0, 0);
-            nav.Controls.Add(ir);
-        }
+        Button prox = Tema.Botao(LiveTxt.T("tut_prox") + " ▶", Tema.D(160), Tema.D(34), 1, delegate { passo++; MostrarAba(AbaTutorial); });
+        prox.Enabled = passo < AbaInterface;
+        nav.Controls.Add(prox);
+        int alvo = passo;
+        string rotIr = "↗ " + LiveTxt.F("tut_ir", LiveTxt.T(NomesAbas[alvo]));
+        Button ir = Tema.Botao(rotIr, Tema.D(40) + TextRenderer.MeasureText(rotIr, Tema.F(9f)).Width, Tema.D(34), 0, delegate { MostrarAba(alvo); });
+        ir.Margin = new Padding(Tema.D(20), 0, 0, 0);
+        nav.Controls.Add(ir);
         c.Controls.Add(nav);
     }
 }

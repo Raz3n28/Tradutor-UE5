@@ -23,7 +23,6 @@ internal sealed partial class Janela
     private Control PaginaFalas()
     {
         TableLayoutPanel t = new TableLayoutPanel { ColumnCount = 1, RowCount = 3, BackColor = Tema.Conteudo, Padding = new Padding(0, 0, Tema.D(4), 0) };
-        Tema.Papel(t);
         t.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         t.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         t.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
@@ -47,7 +46,7 @@ internal sealed partial class Janela
         filtrosFalas = Tema.Linha(w);
         t.Controls.Add(filtrosFalas);
 
-        TableLayoutPanel meio = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = DColor.Transparent };
+        TableLayoutPanel meio = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = Tema.Conteudo };
         meio.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32f));
         meio.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 68f));
         meio.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
@@ -92,7 +91,7 @@ internal sealed partial class Janela
         meio.Controls.Add(gradeGrupos, 0, 0);
 
         Panel direita = new PainelFixo { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Tema.Rgb(0x17, 0x1F, 0x26), Padding = new Padding(Tema.D(14)) };
-        listaFalas = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoSize = true, BackColor = DColor.Transparent, Location = new Point(Tema.D(14), Tema.D(10)) };
+        listaFalas = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoSize = true, BackColor = direita.BackColor, Location = new Point(Tema.D(14), Tema.D(10)) };
         direita.Controls.Add(listaFalas);
         falasVazio = Tema.Rotulo(LiveTxt.T("falas_vazio"), Tema.D(400), Tema.Fraco, 10f);
         falasVazio.Location = new Point(Tema.D(14), Tema.D(14));

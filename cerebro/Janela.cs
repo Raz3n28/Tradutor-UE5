@@ -1261,7 +1261,6 @@ internal sealed partial class Janela : Form
     private Control PaginaGlossario()
     {
         TableLayoutPanel t = new TableLayoutPanel { ColumnCount = 1, RowCount = 4, BackColor = Tema.Conteudo, Padding = new Padding(0, 0, Tema.D(4), 0) };
-        Tema.Papel(t);
         t.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         t.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         t.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
@@ -1299,7 +1298,7 @@ internal sealed partial class Janela : Form
         t.Controls.Add(filtros);
 
         // lista | painel do termo
-        TableLayoutPanel meio = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = DColor.Transparent, Margin = new Padding(0, Tema.D(4), 0, 0) };
+        TableLayoutPanel meio = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = Tema.Conteudo, Margin = new Padding(0, Tema.D(4), 0, 0) };
         meio.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58f));
         meio.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42f));
         meio.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
@@ -1408,20 +1407,8 @@ internal sealed partial class Janela : Form
         caixa.Paint += delegate (object s, PaintEventArgs e)
         {
             using (Pen p = new Pen(Tema.Rgb(0x2A, 0x36, 0x40))) e.Graphics.DrawRectangle(p, 0, 0, caixa.Width - 1, caixa.Height - 1);
-            // brilho jade no canto
-            using (System.Drawing.Drawing2D.GraphicsPath gp = new System.Drawing.Drawing2D.GraphicsPath())
-            {
-                int r = Tema.D(200);
-                gp.AddEllipse(caixa.Width - r / 2 - Tema.D(10), -r / 2, r, r);
-                using (System.Drawing.Drawing2D.PathGradientBrush b = new System.Drawing.Drawing2D.PathGradientBrush(gp))
-                {
-                    b.CenterColor = DColor.FromArgb(34, 45, 212, 191);
-                    b.SurroundColors = new DColor[] { DColor.FromArgb(0, 45, 212, 191) };
-                    e.Graphics.FillPath(b, gp);
-                }
-            }
         };
-        det = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoSize = true, BackColor = DColor.Transparent, Location = new Point(Tema.D(16), Tema.D(12)) };
+        det = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoSize = true, BackColor = caixa.BackColor, Location = new Point(Tema.D(16), Tema.D(12)) };
         caixa.Controls.Add(det);
 
         detOrig = Tema.Rotulo("", Tema.D(300), Tema.Dourado, 20f);

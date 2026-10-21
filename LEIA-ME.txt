@@ -19,8 +19,14 @@ ue4ss\UE4SS.log                 log do UE4SS (linhas [TradutorUE5])
 
 O tradutor fecha sozinho quando o jogo fecha.
 
+SE ALGO DER ERRADO
+- Jogo trava ou fecha ao abrir: confira o [Hooks] do passo 1.
+- O tradutor nao abre: instale o .NET 8 Desktop Runtime (x64).
+- Traducao estranha ou velha: Configuracoes > Limpar cache (o que voce travou fica).
+- Para pedir ajuda: Configuracoes > Gerar relatorio de erro (junta os logs num .zip).
+
 MENU (F8)
-00 Como usar   tutorial em 9 passos com imagens (abre sozinho na primeira vez)
+00 Como usar   guia de cada aba: para que serve e o que faz cada opcao (abre sozinho na primeira vez)
 01 Painel      resumo: estado, modo, idioma, glossario, cache, ponte, gasto da chave, versao nova e ultimas traducoes
 02 Geral       comecar/pausar, modo gratis ou com chave, idioma de destino, o que traduzir
 03 Provedor    servico de IA, URL, chave e modelo; "Testar conexao"
