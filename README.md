@@ -10,17 +10,18 @@ targets **Spirit Realm** (UE 5.7). The Sanctum: Whispers of Qingcheng version li
 
 ## How to install
 
-**Requirements:** Windows 10/11 x64 · [.NET 8 Desktop Runtime (x64)](https://dotnet.microsoft.com/download/dotnet/8.0) · [UE4SS experimental](https://github.com/UE4SS-RE/RE-UE4SS/releases)
+**Requirements:** Windows 10/11 x64 · [.NET 8 Desktop Runtime (x64)](https://dotnet.microsoft.com/download/dotnet/8.0) · UE4SS (ships with the game)
 
 1. **Install the .NET 8 Desktop Runtime (x64)** from the link above ("Desktop Runtime", "Windows x64").
    To check, in cmd: `dotnet --list-runtimes` should list `Microsoft.WindowsDesktop.App 8.x`.
-2. **Install UE4SS** (latest experimental): extract its zip into the folder with the game's executable.
-   For Spirit Realm: `...\steamapps\common\SpiritRealm\Windows\X_Game\Binaries\Win64\` (where
-   `X_Game-Win64-Shipping.exe` is). You must see **both** `dwmapi.dll` and a `ue4ss` folder there: without
-   `dwmapi.dll` UE4SS never loads (no `ue4ss\UE4SS.log` is created).
-3. **Spirit Realm (UE 5.7):** in `ue4ss\UE4SS-settings.ini`, `[Hooks]` section, keep only `HookLoadMap = 1` and
-   `HookEngineTick = 1`; set every other `Hook...` to `0`. Otherwise the game may freeze or crash.
-   In `ue4ss\Mods\mods.txt` the UE4SS sample mods can all be `0` (the translator does not use them).
+2. **Turn on the UE4SS that ships with the game.** Spirit Realm comes with UE4SS (the `ue4ss` folder, already
+   set up for this game), but disabled: its loader is named `aaa.dll`. In
+   `...\steamapps\common\SpiritRealm\Windows\X_Game\Binaries\Win64\` (where `X_Game-Win64-Shipping.exe`
+   is), copy `aaa.dll` and rename the copy to `dwmapi.dll`. Do not download another UE4SS: the game's one
+   already has the right signature for UE 5.7. After starting the game, `ue4ss\UE4SS.log` should appear.
+3. **If the game freezes or crashes:** in `ue4ss\UE4SS-settings.ini`, `[Hooks]` section, keep only
+   `HookLoadMap = 1` and `HookEngineTick = 1` and set every other `Hook...` to `0` (this fixed Sanctum).
+   Try the file as shipped first.
 4. **Download TradutorUE5.zip** from [Releases](https://github.com/Raz3n28/Tradutor-UE5/releases) and copy
    its `ue4ss` folder into the same `Binaries\Win64` folder (it merges with the UE4SS one).
 5. **Start the game.** The translator opens by itself. Press **F8** to open the menu, pick the language and

@@ -10,17 +10,18 @@ Tradução em tempo real para jogos em Unreal Engine 5, portada do
 
 ## Instalação
 
-**Requisitos:** Windows 10/11 x64 · [.NET 8 Desktop Runtime (x64)](https://dotnet.microsoft.com/download/dotnet/8.0) · [UE4SS experimental](https://github.com/UE4SS-RE/RE-UE4SS/releases)
+**Requisitos:** Windows 10/11 x64 · [.NET 8 Desktop Runtime (x64)](https://dotnet.microsoft.com/download/dotnet/8.0) · UE4SS (já vem no jogo)
 
 1. **Instale o .NET 8 Desktop Runtime (x64)** no link acima ("Desktop Runtime", "Windows x64").
    Para conferir, no cmd: `dotnet --list-runtimes` deve mostrar `Microsoft.WindowsDesktop.App 8.x`.
-2. **Instale o UE4SS** (versão experimental mais recente): extraia o zip dele na pasta do executável do jogo.
-   No Spirit Realm: `...\steamapps\common\SpiritRealm\Windows\X_Game\Binaries\Win64\` (onde fica o
-   `X_Game-Win64-Shipping.exe`). Ali devem ficar **o `dwmapi.dll` e** a pasta `ue4ss`: sem o `dwmapi.dll` o
-   UE4SS nem carrega (não aparece o `ue4ss\UE4SS.log`).
-3. **Spirit Realm (UE 5.7):** em `ue4ss\UE4SS-settings.ini`, seção `[Hooks]`, deixe só `HookLoadMap = 1` e
-   `HookEngineTick = 1`; todos os outros `Hook... = 0`. Sem isso o jogo pode travar ou fechar.
-   No `ue4ss\Mods\mods.txt` os mods de exemplo do UE4SS podem ficar todos em 0 (o tradutor não usa).
+2. **Ligue o UE4SS que já vem com o jogo.** O Spirit Realm traz o UE4SS (pasta `ue4ss`, já ajustado para
+   este jogo), mas desligado: o carregador vem com o nome `aaa.dll`. Na pasta
+   `...\steamapps\common\SpiritRealm\Windows\X_Game\Binaries\Win64\` (onde fica o
+   `X_Game-Win64-Shipping.exe`), copie o `aaa.dll` e renomeie a cópia para `dwmapi.dll`. Não baixe outro
+   UE4SS: o do jogo já tem a assinatura certa para a UE 5.7. Abrindo o jogo, deve aparecer o `ue4ss\UE4SS.log`.
+3. **Se o jogo travar ou fechar:** em `ue4ss\UE4SS-settings.ini`, seção `[Hooks]`, deixe só `HookLoadMap = 1`
+   e `HookEngineTick = 1`, e todos os outros `Hook... = 0` (foi o que resolveu no Sanctum). Primeiro teste
+   com o arquivo como veio no jogo.
 4. **Baixe o TradutorUE5.zip** em [Releases](https://github.com/Raz3n28/Tradutor-UE5/releases) e copie a pasta `ue4ss` do zip para a mesma `Binaries\Win64`
    (ela se junta com a do UE4SS).
 5. **Abra o jogo.** O tradutor abre sozinho. Aperte **F8** para abrir o menu, escolha o idioma e o serviço

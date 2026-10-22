@@ -3,12 +3,13 @@ TRADUTOR UE5 - traducao ao vivo para jogos em Unreal Engine 5 (esta versao: Spir
 INSTALAR
 0. Precisa do .NET 8 Desktop Runtime (Windows x64): https://dotnet.microsoft.com/download/dotnet/8.0
    (para conferir: no cmd, "dotnet --list-runtimes" deve mostrar Microsoft.WindowsDesktop.App 8.x)
-1. Instale o UE4SS (versao experimental mais recente) na pasta do jogo:
+1. Ligue o UE4SS que ja vem com o jogo. Na pasta
    ...\SpiritRealm\Windows\X_Game\Binaries\Win64\  (onde fica o X_Game-Win64-Shipping.exe)
-   Ali devem ficar o dwmapi.dll E a pasta ue4ss. Sem o dwmapi.dll o UE4SS nem carrega (nao aparece o ue4ss\UE4SS.log).
-   Spirit Realm (UE 5.7): o UE4SS pode travar ou crashar o jogo com os ganchos padrao. No ue4ss\UE4SS-settings.ini,
-   secao [Hooks], deixe so HookLoadMap = 1 e HookEngineTick = 1; todos os outros Hook... = 0.
-   No ue4ss\Mods\mods.txt os mods de exemplo do UE4SS podem ficar todos em 0 (o tradutor nao usa).
+   o jogo traz a pasta ue4ss e o carregador desligado, com o nome aaa.dll. Copie o aaa.dll e renomeie a
+   copia para dwmapi.dll. Nao baixe outro UE4SS (o do jogo ja vem ajustado para a UE 5.7).
+   Abrindo o jogo deve aparecer o ue4ss\UE4SS.log.
+   Se o jogo travar ou fechar: no ue4ss\UE4SS-settings.ini, secao [Hooks], deixe so HookLoadMap = 1 e
+   HookEngineTick = 1; todos os outros Hook... = 0 (foi o que resolveu no Sanctum).
 2. Copie a pasta "ue4ss" deste zip para a mesma pasta Binaries\Win64 (junta com a do UE4SS).
 3. Abra o jogo. O tradutor (TradutorCerebro.exe) abre sozinho, escondido.
 4. No jogo, aperte F8: abre o menu do tradutor. Escolha o idioma e o servico e clique em "Comecar traducao".
@@ -21,6 +22,7 @@ O tradutor fecha sozinho quando o jogo fecha.
 
 SE ALGO DER ERRADO
 - Jogo trava ou fecha ao abrir: confira o [Hooks] do passo 1.
+- Nada acontece (sem ue4ss\UE4SS.log): falta o dwmapi.dll (copia do aaa.dll) do passo 1.
 - O tradutor nao abre: instale o .NET 8 Desktop Runtime (x64).
 - Traducao estranha ou velha: Configuracoes > Limpar cache (o que voce travou fica).
 - Para pedir ajuda: Configuracoes > Gerar relatorio de erro (junta os logs num .zip).
