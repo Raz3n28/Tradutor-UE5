@@ -17,7 +17,9 @@ internal static class Ponte
 {
     public static string PastaMod = AppContext.BaseDirectory;
 
-    // nome do jogo (pasta do projeto): ...\<Projeto>\Binaries\Win64\ue4ss\Mods\TradutorUE5 -> "<Projeto>".
+    // nome do jogo: a pasta da Steam (...\steamapps\common\<Jogo>\...) quando tem; senao a pasta do projeto
+    // (...\<Projeto>\Binaries\Win64\ue4ss\Mods\TradutorUE5 -> "<Projeto>"). No Spirit Realm o projeto chama
+    // "X_Game", por isso vale mais o nome da pasta da Steam ("SpiritRealm").
     // Cada jogo tem o seu mod, entao glossario, cache, estilo e falas (pasta dados) ja ficam separados por jogo.
     public static string NomeJogo
     {
@@ -25,6 +27,8 @@ internal static class Ponte
         {
             try
             {
+                for (DirectoryInfo c = new DirectoryInfo(PastaMod); c != null && c.Parent != null; c = c.Parent)
+                    if (c.Parent.Name.Equals("common", StringComparison.OrdinalIgnoreCase)) return c.Name;
                 DirectoryInfo d = new DirectoryInfo(PastaMod);
                 for (int i = 0; i < 5 && d != null; i++) d = d.Parent;
                 return d != null ? d.Name : "";

@@ -5,8 +5,8 @@
 🇺🇸 **English** · 🇧🇷 [Português (BR)](README.pt-BR.md)
 
 Real-time translation for Unreal Engine 5 games, ported from
-[ModLive](https://github.com/Raz3n28/ModLive-Traducao-Universal) (Unity). First target:
-**Sanctum: Whispers of Qingcheng** (下一站青城).
+[ModLive](https://github.com/Raz3n28/ModLive-Traducao-Universal) (Unity). This branch (`spirit-realm`)
+targets **Spirit Realm** (UE 5.7). The Sanctum: Whispers of Qingcheng version lives on `main`.
 
 ## How to install
 
@@ -15,10 +15,12 @@ Real-time translation for Unreal Engine 5 games, ported from
 1. **Install the .NET 8 Desktop Runtime (x64)** from the link above ("Desktop Runtime", "Windows x64").
    To check, in cmd: `dotnet --list-runtimes` should list `Microsoft.WindowsDesktop.App 8.x`.
 2. **Install UE4SS** (latest experimental): extract its zip into the folder with the game's executable.
-   For Sanctum: `...\steamapps\common\QingChengDemo\QingCheng\Binaries\Win64\` (where
-   `QingCheng-Win64-Shipping.exe` is). You should see `dwmapi.dll` and a `ue4ss` folder there.
-3. **Sanctum (UE 5.8):** in `ue4ss\UE4SS-settings.ini`, `[Hooks]` section, keep only `HookLoadMap = 1` and
+   For Spirit Realm: `...\steamapps\common\SpiritRealm\Windows\X_Game\Binaries\Win64\` (where
+   `X_Game-Win64-Shipping.exe` is). You must see **both** `dwmapi.dll` and a `ue4ss` folder there: without
+   `dwmapi.dll` UE4SS never loads (no `ue4ss\UE4SS.log` is created).
+3. **Spirit Realm (UE 5.7):** in `ue4ss\UE4SS-settings.ini`, `[Hooks]` section, keep only `HookLoadMap = 1` and
    `HookEngineTick = 1`; set every other `Hook...` to `0`. Otherwise the game may freeze or crash.
+   In `ue4ss\Mods\mods.txt` the UE4SS sample mods can all be `0` (the translator does not use them).
 4. **Download TradutorUE5.zip** from [Releases](https://github.com/Raz3n28/Tradutor-UE5/releases) and copy
    its `ue4ss` folder into the same `Binaries\Win64` folder (it merges with the UE4SS one).
 5. **Start the game.** The translator opens by itself. Press **F8** to open the menu, pick the language and

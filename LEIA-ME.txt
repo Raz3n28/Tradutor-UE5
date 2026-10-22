@@ -1,12 +1,12 @@
-TRADUTOR UE5 - traducao ao vivo para jogos em Unreal Engine 5 (primeiro jogo: Sanctum: Whispers of Qingcheng)
+TRADUTOR UE5 - traducao ao vivo para jogos em Unreal Engine 5 (esta versao: Spirit Realm, UE 5.7)
 
 INSTALAR
 0. Precisa do .NET 8 Desktop Runtime (Windows x64): https://dotnet.microsoft.com/download/dotnet/8.0
    (para conferir: no cmd, "dotnet --list-runtimes" deve mostrar Microsoft.WindowsDesktop.App 8.x)
 1. Instale o UE4SS (versao experimental mais recente) na pasta do jogo:
-   ...\QingCheng\Binaries\Win64\  (onde fica o QingCheng-Win64-Shipping.exe)
-   Ali devem ficar o dwmapi.dll e a pasta ue4ss.
-   Sanctum (UE 5.8): o UE4SS trava ou crasha o jogo com os ganchos padrao. No ue4ss\UE4SS-settings.ini,
+   ...\SpiritRealm\Windows\X_Game\Binaries\Win64\  (onde fica o X_Game-Win64-Shipping.exe)
+   Ali devem ficar o dwmapi.dll E a pasta ue4ss. Sem o dwmapi.dll o UE4SS nem carrega (nao aparece o ue4ss\UE4SS.log).
+   Spirit Realm (UE 5.7): o UE4SS pode travar ou crashar o jogo com os ganchos padrao. No ue4ss\UE4SS-settings.ini,
    secao [Hooks], deixe so HookLoadMap = 1 e HookEngineTick = 1; todos os outros Hook... = 0.
    No ue4ss\Mods\mods.txt os mods de exemplo do UE4SS podem ficar todos em 0 (o tradutor nao usa).
 2. Copie a pasta "ue4ss" deste zip para a mesma pasta Binaries\Win64 (junta com a do UE4SS).

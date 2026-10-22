@@ -5,8 +5,8 @@
 🇺🇸 [English](README.md) · 🇧🇷 **Português (BR)**
 
 Tradução em tempo real para jogos em Unreal Engine 5, portada do
-[ModLive](https://github.com/Raz3n28/ModLive-Traducao-Universal) (Unity). Primeiro alvo:
-**Sanctum: Whispers of Qingcheng** (下一站青城).
+[ModLive](https://github.com/Raz3n28/ModLive-Traducao-Universal) (Unity). Esta branch (`spirit-realm`)
+é a versão para o **Spirit Realm** (UE 5.7). A versão do Sanctum: Whispers of Qingcheng fica na `main`.
 
 ## Instalação
 
@@ -15,10 +15,12 @@ Tradução em tempo real para jogos em Unreal Engine 5, portada do
 1. **Instale o .NET 8 Desktop Runtime (x64)** no link acima ("Desktop Runtime", "Windows x64").
    Para conferir, no cmd: `dotnet --list-runtimes` deve mostrar `Microsoft.WindowsDesktop.App 8.x`.
 2. **Instale o UE4SS** (versão experimental mais recente): extraia o zip dele na pasta do executável do jogo.
-   No Sanctum: `...\steamapps\common\QingChengDemo\QingCheng\Binaries\Win64\` (onde fica o
-   `QingCheng-Win64-Shipping.exe`). Ali devem ficar o `dwmapi.dll` e a pasta `ue4ss`.
-3. **Sanctum (UE 5.8):** em `ue4ss\UE4SS-settings.ini`, seção `[Hooks]`, deixe só `HookLoadMap = 1` e
+   No Spirit Realm: `...\steamapps\common\SpiritRealm\Windows\X_Game\Binaries\Win64\` (onde fica o
+   `X_Game-Win64-Shipping.exe`). Ali devem ficar **o `dwmapi.dll` e** a pasta `ue4ss`: sem o `dwmapi.dll` o
+   UE4SS nem carrega (não aparece o `ue4ss\UE4SS.log`).
+3. **Spirit Realm (UE 5.7):** em `ue4ss\UE4SS-settings.ini`, seção `[Hooks]`, deixe só `HookLoadMap = 1` e
    `HookEngineTick = 1`; todos os outros `Hook... = 0`. Sem isso o jogo pode travar ou fechar.
+   No `ue4ss\Mods\mods.txt` os mods de exemplo do UE4SS podem ficar todos em 0 (o tradutor não usa).
 4. **Baixe o TradutorUE5.zip** em [Releases](https://github.com/Raz3n28/Tradutor-UE5/releases) e copie a pasta `ue4ss` do zip para a mesma `Binaries\Win64`
    (ela se junta com a do UE4SS).
 5. **Abra o jogo.** O tradutor abre sozinho. Aperte **F8** para abrir o menu, escolha o idioma e o serviço

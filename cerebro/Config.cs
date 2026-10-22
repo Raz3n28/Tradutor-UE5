@@ -84,7 +84,7 @@ internal static class LiveConfig
     public static int Estilo = 0;
     public static string PromptExtra = "";
     // o jogo, do jeito que vai no pedido para a IA (em ingles)
-    public const string JogoPadrao = "a Chinese xianxia (cultivation) action RPG called 'Sanctum: Whispers of Qingcheng', set in ancient China around Mount Qingcheng";
+    public const string JogoPadrao = "a Chinese xianxia (cultivation) open-world action RPG called 'Spirit Realm', with cultivation realms, sects, magic treasures (fabao), talismans (fulu), formations (zhenfa), physiques (tizhi), pills and crafting";
     public static string Jogo = JogoPadrao;
     public static string ProvedorId = IdGoogle;
     public static string UltimoProvedorComChave = "gemini";

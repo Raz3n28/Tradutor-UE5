@@ -26,8 +26,9 @@ local ESPERA_VIDEO_MS = 6000      -- espera depois de aplicar configuracoes de v
 local TECLA_MENU = Key.F8
 local ABRIR_CEREBRO = true        -- abre o TradutorCerebro.exe junto com o jogo
 local CLASSES = { "TextBlock", "RichTextBlock" }
--- telas de carregamento do jogo: os textos delas ficam como estao (aparecem enquanto o mundo e montado)
-local TELAS_CARREGANDO = { "WBP_LoadingScreen_C" }
+-- telas de carregamento do jogo: os textos delas ficam como estao (aparecem enquanto o mundo e montado).
+-- Basta um pedaco do nome. Spirit Realm: AsyncLoadingScreen (Slate, a ponte nem ve) + telas proprias "...Loading..."
+local TELAS_CARREGANDO = { "LoadingScreen", "WBP_Loading", "WB_Loading", "UI_Loading" }
 -- ESTABILIDADE: a ponte so le a tela a cada INTERVALO_MS e usa o minimo de funcoes do UE4SS (IsValid,
 -- GetAddress, GetFullName, Text, SetText). Nas versoes que liam mais vezes ou usavam mais funcoes
 -- (gancho no SetText, conferencia a cada 150 ms, marcas internas, fonte) o UE4SS beta derrubava o jogo.
